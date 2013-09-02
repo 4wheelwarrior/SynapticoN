@@ -578,7 +578,7 @@ function spawnBubble()
 	cnvDom = drawBubbleCnv(r,3);
 	
 	// Attach event handler on <canvas> object
-	cnvDom.addEventListener('touchstart', bubClick, false);
+	cnvDom.addEventListener('click', bubClick, false);
 	
 	// Position canvas and set opacity to zero (in preparation for fade in)
 	cnvDom.style.left 		= x + 'px' ;
@@ -1050,7 +1050,7 @@ function titleSequence1()
 function titleSequence2()
 {
 	var el = document.getElementById('thebody') ;
-	el.addEventListener('touchstart',launchSequence1,false) ;
+	el.addEventListener('click',launchSequence1,false) ;
 
 	fadeElementOut(document.getElementById('title-bg-black'),2000,function(){
 		// Once fadeout is done, make 'tap to start' region active
@@ -1072,7 +1072,7 @@ function launchSequence1()
 	window.clearInterval(_ITTS) ;
 	
 	// Cancel event listener for 'tap to start'
-	document.getElementById('thebody').removeEventListener('touchstart',launchSequence1,false) ;
+	document.getElementById('thebody').removeEventListener('click',launchSequence1,false) ;
 	
 	document.getElementById('title-lettr-tapstart').style.display = 'none' ;
 	document.getElementById('title-lettr-title').style.display = 'none' ;
