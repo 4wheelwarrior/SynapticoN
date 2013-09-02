@@ -33,22 +33,23 @@ var C_BUB_MAX				= 6 ;		// Max # of bubbles on screen simultaneously
 var C_BUB_LSPAN_MIN			= 4000 ; 	// Min lifespan of a bubble (msec)
 var C_BUB_LSPAN_MAX			= 8000 ;	// Max lifespan
 var C_BUB_RADIUS_MIN		= 30 ;		// Min radius of bubble (pixels)
-var C_BUB_RADIUS_MAX		= 60 ;		// Max radius
-var C_BUB_OPAC_MIN			= 0.25 ;	// Min opacity of bubble (0 - 1.0, css opacity)
-var C_BUB_OPAC_MAX			= 0.35 ;	// Max opacity
+var C_BUB_RADIUS_MAX		= 70 ;		// Max radius
+var C_BUB_OPAC_MIN			= 0.15 ;	// Min opacity of bubble (0 - 1.0, css opacity)
+var C_BUB_OPAC_MAX			= 0.30 ;	// Max opacity
 var C_BUB_EDGEPAD			= 10 ;		// Padding for bubble region (from screen edges)
 var C_BUB_EXPRATE			= 1 ;		// Expansion rate of bubble's radius (pixels per tick)
 
-var C_BUB_GEOM				= [ [99], 		// Which polygons may be shown for each colour. RED
+var C_BUB_GEOM				= [ [99], 	// Which polygons for each colour.Starting @ RED
 								[99], 					// ORG
 								[3,4,99],				// YEL
 								[99],					// GRN
 								[5,6,99],				// BLU
 								[5,6,7,8,99],			// IND
-								[3,4,5,6,7,8,9,0]		// VIO
-							  ] ;
+								[3,4,5,6,7,8,9,99]		// VIO
+							  ] ;		// Index can piggyback off _bgIdx
 
-var C_BUB_CRAD				= 10 ;		// Corner radius of polygon bubbles
+var C_BUB_CRAT				= 0.16; 	// Corner radius of polygon bubbles, ratio of radius
+
 var C_UBR_INT				= 500 ;		// ms between calls of updateBubReg()
 var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
 var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
@@ -123,8 +124,9 @@ var _M	= [] ;		// DOM pointers to mandala canvases
 var _IM	= 0 ;			// Index of mandala canvas being drawn
 
 var _RBASE ;			// Base radius of mandala set being drawn
-var _R ;					// Radius of current mandala being drawn
-var _IA	;					// Multiplier  on _DA to determine offset angle of mandala
+var _R ;				// Radius of current mandala being drawn
+var _IA	;				// Multiplier  on _DA to determine offset angle of mandala
+
 </script>
 </head>
 <!-- #SEC_HTML -->
@@ -550,9 +552,9 @@ function spawnBubble()
 	// If we've already spawned max number of bubbles, skip this...
 	if(_BUBREG.length > C_BUB_MAX){ console.log('Max bubbles exceeded ...') ; return ;}
 	
-	// Test value (random, between 0 and 1.0)
+	// Generate random test value (random, between 0 and 1.0)
 	// If it falls outside the probability factor, do nothing. Return.
-	var p = C_BUB_SPAWNPROB ;					// TODO: pull this from defs array (probability factor)
+	var p = C_BUB_SPAWNPROB ;
 	var t = Math.random() ;
 	//console.log('T value: '+t+', P value: '+p) ;
 	
@@ -571,11 +573,15 @@ function spawnBubble()
 	
 	var dx = randomInt(-1,1) ;
 	var dy = randomInt(-1,1) ;
+
+	// Look up valid geometries for colour we're on, randomly select one
+	var geom = C_BUB_GEOM[_bgIdx] ;
+	var sides = geom[randomInt(0,geom.length - 1)] ;
 	
 	//console.log('Spawning bubble with r, o, l, x, y: '+r+', '+o+', '+l+', '+x+', '+y) ;
 	
 	// Create canvas, draw on it
-	cnvDom = drawBubbleCnv(r,3);
+	cnvDom = drawBubbleCnv(r,sides);
 	
 	// Attach event handler on <canvas> object
 	cnvDom.addEventListener('click', bubClick, false);
@@ -700,13 +706,13 @@ function explode(x,y,r,p)
 	
 	var elBody = document.getElementById('thebody') ;
 
-	// Create burst element
-	elBurst = document.createElement('img') ;
-	elBurst.src 			= "img/burst.gif" ;
-	elBurst.style.position 	= 'absolute' ;
-	elBurst.style.zIndex 	= '3000' ;
-	elBurst.style.left 		= x + 'px' ;
-	elBurst.style.top 		= y + 'px' ;
+	// // Create burst element
+	// elBurst = document.createElement('img') ;
+	// elBurst.src 			= "img/burst.gif" ;
+	// elBurst.style.position 	= 'absolute' ;
+	// elBurst.style.zIndex 	= '3000' ;
+	// elBurst.style.left 		= x + 'px' ;
+	// elBurst.style.top 		= y + 'px' ;
 
 	// Create particles
 	for(var i = 0; i < p; i++)
@@ -741,8 +747,8 @@ function explode(x,y,r,p)
 		_SHARDREG.push(el) ;
 	}
 
-	// Append explosion gif ...
-	elBody.appendChild(elBurst) ;
+	// // Append explosion gif ...
+	// elBody.appendChild(elBurst) ;
 
 	// TODO: make sure burst anim gets cleaned up ... 
 
@@ -798,6 +804,8 @@ function shardRegGC()
 // <canvas> is rendered at 2x native size for a slightly pixellated effect
 // 'r' refers to the radius of the SCALED bubble... SO.. we need to draw
 // it at 'half size' so it'll be correct when scaled up
+// 'e' is the edge count. A polygon with this many edges is drawn.
+// the value 99 means 'draw a circle'
 function drawBubbleCnv(r, e)
 {	
 	var cnv = document.createElement('canvas') ;
@@ -816,8 +824,8 @@ function drawBubbleCnv(r, e)
 	
 	var ctx = cnv.getContext('2d') ;
 
-	if(!e) drawCell(ctx, rScaled, rScaled, rScaled) ;
-	else drawPoly(ctx, rScaled, rScaled, rScaled, 5) ;
+	if(e == 99) drawCell(ctx, rScaled, rScaled, rScaled) ;
+	else drawPoly(ctx, rScaled, rScaled, rScaled, e) ;
 
 	return cnv ;
 }
@@ -948,19 +956,19 @@ function drawPoly(ctx, cX, cY, r, edgeCount, aOffset)
 	if(!aOffset) aOffset = 0 ;
 
 	var pts = getPolyPts(cX, cY, r, edgeCount, aOffset) ;
-
-	doPolyDraw(ctx, pts, C_BUB_CRAD,0.6) ;
+	var cRad = Math.floor(C_BUB_CRAT * r) ;
+	doPolyDraw(ctx, pts, cRad,0.6) ;
 
 	pts = getPolyPts(cX, cY, r - 1, edgeCount, aOffset) ;
 
-	doPolyDraw(ctx, pts, C_BUB_CRAD,0.4) ;
+	doPolyDraw(ctx, pts, cRad,0.4) ;
 
 	pts = getPolyPts(cX, cY, r - 2, edgeCount, aOffset) ;
 
-	doPolyDraw(ctx, pts, C_BUB_CRAD,0.3) ;
+	doPolyDraw(ctx, pts, cRad,0.3) ;
 	pts = getPolyPts(cX, cY, r - 3, edgeCount, aOffset) ;
 
-	doPolyDraw(ctx, pts, C_BUB_CRAD,0.2) ;
+	doPolyDraw(ctx, pts, cRad,0.2) ;
 }
 
 function getPolyPts(cX, cY, r, edgeCount, aOffset)
