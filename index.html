@@ -1,0 +1,1232 @@
+<html>
+<head>
+
+<title>SynapticoN</title>
+
+<script src="phonegap.js"></script>
+<script src="tween.js"></script>
+
+<script>
+// #SEC_JSHEAD
+var C_TTICK_INT   			= 250 ;		// Tween ticker interval (msec)
+var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
+var C_RBMIN					= 20 ;		// Min value of base radius (native canvas size)
+var C_RBMAX					= 40 ;		// Max value of base radius (display size will be 2x this)
+var C_IAMAX					= 12 ;		// Maximum _AOFFSET reached before we wrap around to zero
+										// (12 * 137.5 = 1650 degrees)
+
+
+var C_MWIDTH 				= 1024 ;	// Mandala base size (starts here, scales up)
+var C_MHEIGHT 				= 768 ;
+
+var C_MSCALE_MAX 			= 0.15 ;	// Scale mandala UP by this factor before fading out
+																	// EG 0.3 = 30% means 800px will scale to 800 + (30% * 800)
+													
+var C_MOPAC_MIN				= 0.0 ;		// Min/Max opacities of mandalas as they grow
+var C_MOPAC_MAX				= 0.15 ;
+
+var C_MSCALE_DUR			= 12000 ;	// Duration of life and death cycle (total cycle is 2x)
+var C_MSPAWN_INT  			= 6000 ;	// Interval on which new mandalas are spawned
+
+var C_BUB_SPAWNPROB			= 0.2 ;		// Probability of a spawn each time spawnBubble() called
+var C_BUB_MAX				= 6 ;		// Max # of bubbles on screen simultaneously
+var C_BUB_LSPAN_MIN			= 4000 ; 	// Min lifespan of a bubble (msec)
+var C_BUB_LSPAN_MAX			= 8000 ;	// Max lifespan
+var C_BUB_RADIUS_MIN		= 30 ;		// Min radius of bubble (pixels)
+var C_BUB_RADIUS_MAX		= 60 ;		// Max radius
+var C_BUB_OPAC_MIN			= 0.25 ;	// Min opacity of bubble (0 - 1.0, css opacity)
+var C_BUB_OPAC_MAX			= 0.35 ;	// Max opacity
+var C_BUB_EDGEPAD			= 10 ;		// Padding for bubble region (from screen edges)
+var C_BUB_EXPRATE			= 1 ;		// Expansion rate of bubble's radius (pixels per tick)
+
+var C_BUB_GEOM				= [ [99], 		// Which polygons may be shown for each colour. RED
+								[99], 					// ORG
+								[3,4,99],				// YEL
+								[99],					// GRN
+								[5,6,99],				// BLU
+								[5,6,7,8,99],			// IND
+								[3,4,5,6,7,8,9,0]		// VIO
+							  ] ;
+
+var C_BUB_CRAD				= 10 ;		// Corner radius of polygon bubbles
+var C_UBR_INT				= 500 ;		// ms between calls of updateBubReg()
+var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
+var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
+var C_SRGC_MAX				= 10 ;		// After this many calls to updateShardReg(), GC is triggered
+
+// PHI... calculated by its mathematical definition
+var C_PHI 					= ( 1 + Math.sqrt(5) ) / 2 ;
+
+// 137.5 degrees expressed as radians
+// This is the inside angle formed when a circle is divided
+// into two arcs, their lengths being PHI in proportion...
+var C_DA 					= 2.39982772 ;
+
+// Increment time factor in explosion particles by this much each time updateShardReg() called
+var C_DT					= 0.20 ;
+
+var C_SDIST_ORG				= 0.2 		// Shard distribution "organic" factor
+var C_BLSTRAD_ORG			= 0.4 		// Shard "blast radius" organic factor
+ 
+/*
+Block comment here ... yakkity yak
+
+*/
+
+// Globals for interval tickers (needed so we can clear them later)
+var _I1, _I2, _I3, _I4, _I5, _I6 ;
+
+// Renamed interval tickers ...
+var _ITWN ; // tween ticker
+var _ITTS ; // tap to start flasher
+var _IBSP ; // bubble spawner
+var _ISWC ; // swap colour
+var _IUBR ; // updateBubbleReg
+var _ICDN ; // coundown sequence at beginning
+var _IMSP ; // mandala spawn interval
+
+// Screen resolution of device
+var _SCRWID				= 1024 ;
+var _SCRHGT				= 768 ;
+
+// Total number of bubbles spawned
+var _BUB_TOTAL 		= 0 ;
+
+// Number of bubbles hit
+var _BUB_HIT 			= 0 ;
+
+// Bubble registry (keeps track of all bubbles on screen)
+// Each entry is also an array [domRef,lspan]
+// domRef is pointer to <canvas> object
+// lspan is number of milliseconds until <canvas> is removed
+// each time updateBubReg() ticks, lspan is decremented proportionally
+// i.e. if updateBubReg() is on a 100ms interval, decrement is 10 (1/10th of a second)
+var _BUBREG				= [] ;
+
+// Tracks explosive shards
+var _SHARDREG			= [] ;
+
+// Shard Reg garbage collection count
+// Incremented each time updateShardReg() is called
+// Triggers GC routine when it reaches C_SRGC_TRIG
+var _SRGCC				= 0 ;
+
+// 10 different variations of bursting sound
+var _SND_BURST			= [] ;
+
+// Index of current BG colour (i.e. which one gets faded when nextBg is called)
+var _bgIdx 				= 0 ;
+
+// Mandala canvases
+var _M	= [] ;		// DOM pointers to mandala canvases
+
+var _IM	= 0 ;			// Index of mandala canvas being drawn
+
+var _RBASE ;			// Base radius of mandala set being drawn
+var _R ;					// Radius of current mandala being drawn
+var _IA	;					// Multiplier  on _DA to determine offset angle of mandala
+</script>
+</head>
+<!-- #SEC_HTML -->
+<body id="thebody" style="margin:0; padding:0">
+	<div id="build-number" style="position:absolute; z-index: 15000; color:white">BUILD 0015</div>
+	
+	<audio id="explode0"><source src="snd/explode0.ogg"></audio>
+	<audio id="explode1"><source src="snd/explode1.ogg"></audio>
+	<audio id="explode2"><source src="snd/explode2.ogg"></audio>
+	<audio id="explode3"><source src="snd/explode3.ogg"></audio>
+	<audio id="explode4"><source src="snd/explode4.ogg"></audio>
+	<audio id="explode5"><source src="snd/explode5.ogg"></audio>
+	<audio id="explode6"><source src="snd/explode6.ogg"></audio>
+	<audio id="explode7"><source src="snd/explode7.ogg"></audio>
+	<audio id="explode8"><source src="snd/explode8.ogg"></audio>
+	<audio id="explode9"><source src="snd/explode9.ogg"></audio>
+
+	<div id="title-lettr-title"></div>
+	<!-- display:none goes inline, otherwise JS can't read it -->
+	<div id="title-lettr-tapstart" style="display:none"></div>
+	
+	<div id="title-bg-black"></div>
+	
+	<div id="dlog-start">
+		<img 	src="img/lettr-popbubs.gif"
+				 	style="position: absolute; left:66px; top:130px; opacity: 0.66" />
+					
+		<img 	src="img/lettr-ready.gif" id="lettr-ready"
+					style="position: absolute; left:196px; top:205px; opacity: 0" />
+					
+		<img  src="img/dig-3.gif" id="countdown-digit"
+					style="position: absolute; left:307px; top:205px; display:none" />
+					
+		<img  src="img/sym-dot.gif" id="countdown-dot-1"
+					style="position: absolute; left:337px; top:205px; display:none" />
+					
+		<img  src="img/sym-dot.gif" id="countdown-dot-2"
+					style="position: absolute; left:350px; top:205px; display:none" />
+					
+		<img  src="img/sym-dot.gif" id="countdown-dot-3"
+					style="position: absolute; left:365px; top:205px; display:none" />
+	</div>
+	
+	<div id="dlog-end">
+		<!-- wrapper to conveniently set opacity on total/popped & digits -->
+		<div style="opacity: 0.66">
+			<!-- width gets expanded to full width, 360px, via tween -->
+			<div style="position: absolute; left:41px; top:59px; width: 73px; height: 21px;
+									background: url('img/lettr-total.gif') no-repeat; display: none"
+					 id="lettr-total"></div>
+			
+			<!-- same expansion happens here -->
+			<div style="position: absolute; left:41px; top:105px; width: 94px; height: 27px;
+									background: url('img/lettr-popped.gif') no-repeat; display: none"
+					 id="lettr-popped"></div>
+			
+			<!-- digits for total bubble count -->
+			<!-- ordinal values for digit ID's correspond to order
+			     in which 1's, 10's, 100's places are calculated in the code -->
+			<img  src="img/dig-0.gif" id="total-dig-0"
+						style="position: absolute; left:420px; top:59px; display:none; opacity: 0" />
+			<img  src="img/dig-0.gif" id="total-dig-1"
+						style="position: absolute; left:442px; top:59px; display:none; opacity: 0" />
+			<img  src="img/dig-0.gif" id="total-dig-2"
+						style="position: absolute; left:464px; top:59px; display:none; opacity: 0" />
+						
+			<!-- digits for popped bubble count -->
+			<img  src="img/dig-0.gif" id="popped-dig-0"
+						style="position: absolute; left:420px; top:105px; display:none; opacity: 0" />
+			<img  src="img/dig-0.gif" id="popped-dig-1"
+						style="position: absolute; left:442px; top:105px; display:none; opacity: 0" />
+			<img  src="img/dig-0.gif" id="popped-dig-2"
+						style="position: absolute; left:464px; top:105px; display:none; opacity: 0" />
+		</div>
+		<img  src="img/lettr-score.gif"
+					style="position: absolute; left:148px; top:233px; display:none"
+					id="lettr-score" />
+					
+				<!-- digits for popped bubble count -->
+		<img  src="img/dig-0.gif" id="score-dig-2"
+					style="position: absolute; left:320px; top:231px; display:none; opacity: 0" />
+		<img  src="img/dig-8.gif" id="score-dig-1"
+					style="position: absolute; left:339px; top:231px; display:none; opacity: 0" />
+		<img  src="img/dig-7.gif" id="score-dig-0"
+					style="position: absolute; left:360px; top:231px; display:none; opacity: 0" />
+	</div>
+	
+	<!-- TODO: replace this with dynamically generated mandala -->
+	<div id="title-bg-mandala"></div>
+	
+	<div id="bubble-container"></div>
+	<div id="scan-lines"></div>
+	<div id="mandala-container">
+		<canvas width="512" height="384" id="mandala-0" style="z-index: 100"></canvas>
+		<canvas width="512" height="384" id="mandala-1" style="z-index: 90"></canvas>
+		<canvas width="512" height="384" id="mandala-2" style="z-index: 80"></canvas>
+	</div>
+	
+	<!-- these layers "peel away" as colours change -->
+	<div class="bg-layer" id="bg-0" style="z-index: 70; background:url('img/bg-red.png')"></div>
+	<div class="bg-layer" id="bg-1" style="z-index: 60; background:url('img/bg-org.png')"></div>
+	<div class="bg-layer" id="bg-2" style="z-index: 50; background:url('img/bg-yel.png')"></div>
+	<div class="bg-layer" id="bg-3" style="z-index: 40; background:url('img/bg-grn.png')"></div>
+	<div class="bg-layer" id="bg-4" style="z-index: 30; background:url('img/bg-blu.png')"></div>
+	<div class="bg-layer" id="bg-5" style="z-index: 20; background:url('img/bg-ind.png')"></div>
+	<div class="bg-layer" id="bg-6" style="z-index: 10; background:url('img/bg-vio.png')"></div>
+	
+	<script language="javascript">window.setTimeout('titleSequence1()',200)</script>
+
+	<!-- #SEC_CSS -->
+<style>
+html,body{
+    background: black ;
+    width: 1024px ;
+    height: 768px ;
+}
+
+#title-tapstart-region{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 700 ;
+}
+
+#title-lettr-title{
+	position: absolute ;
+	z-index: 620 ;
+	width: 341px ;
+	height: 93px ;
+	left: 322px ;
+	top: 300px ;
+	background: url('img/lettr-title.gif') ;
+}
+
+#title-lettr-tapstart{
+	position: absolute ;
+	z-index: 620 ;
+	width: 324px ;
+	height: 30px ;
+	left: 350px ;
+	top: 420px ;
+	background: url('img/lettr-tapstart.gif') ;
+	opacity: 0.51 ;
+}
+
+#title-bg-black{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 600 ;
+	background: #000 ;
+}
+
+#title-bg-mandala{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 500 ;
+	background: url('img/bg-mandala.jpg') ;
+	background-position: center ;
+}
+
+#dlog-start{
+	position: absolute ;
+	width: 542px ;
+	height: 322px ;
+	left: 241px ;
+	top: 223px ;
+	background: url('img/dlog-bg.png') ;
+	z-index: 620 ;
+	opacity: 0 ;
+}
+
+#dlog-end{
+	position: absolute ;
+	width: 542px ;
+	height: 322px ;
+	left: 241px ;
+	top: 223px ;
+	background: url('img/dlog-bg.png') ;
+	z-index: 620 ;
+	opacity: 0 ;
+}
+
+#mandala-container{
+    position: absolute ;
+    width: 1024px ;
+    height: 768px ;
+    overflow: hidden ;
+}
+
+#bubble-container{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		z-index: 1000 ;
+}
+
+#scan-lines{
+ 		width: 1024px ;
+ 		height: 768px ;
+ 		position: absolute ;
+		z-index: 995 ;
+		background: url('img/scan-lines.png') no-repeat ;
+		opacity: 0.05 ;
+		display: none ;
+}
+
+#mandala-1, #mandala-2, #mandala-3{
+    position: absolute ;
+    width: 1024px; /* double size */
+    height: 768px ; /* double size */
+}
+
+.bg-layer{
+	background-position: center ;
+	position: absolute ;
+	opacity: 1.0 ;
+	width: 1024px ;
+	height: 768px ;
+}
+
+.shard{
+	-webkit-transition-property: left, top, opacity, width ;
+	-webkit-transition-duration: 500ms ;
+	/* ease | linear | ease-in | ease-out | ease-in-out */
+	-webkit-transition-timing-function: ease-out ;
+	display: block ;
+	position: absolute ;
+	z-index: 3000 ;
+	opacity: 0.7 ;
+}
+</style>
+<!-- #SEC_JSSG -->
+<script language="javascript">
+function initSgGen()
+{
+	_M[0] 	= document.getElementById('mandala-0') ;
+	_M[1] 	= document.getElementById('mandala-1') ;
+	_M[2] 	= document.getElementById('mandala-2') ;
+	
+	_RBASE 	= randomInt(C_RBMIN, C_RBMAX) ;
+	_IA		= randomInt(0, C_IAMAX) ;
+	
+	spawnMandalaCycle() ;
+	_IMSP 	= window.setInterval('spawnMandalaCycle()',C_MSPAWN_INT) ;
+}
+
+function spawnMandalaCycle()
+{
+	var a ; 			// offset angle (which angle we start drawing at)
+	var r ; 			// radius (of each 'cell' within the mandala)
+	var cnv ; 		// mandala canvas element
+	var ctx ; 		// 2d context from mandala canvas
+  
+	// Wrap angle around to zero if we've reached the max
+	// EXPLANATION: When angle reaches 1650 degrees, the next 137.5 degrees
+	// Takes us to 1787.5 degrees, which is equivalent to 347.5 degrees.
+	// Instead of going to 347.5 degrees, we'll jump to 360 (zero degrees)
+	// Yep, it's off by 12.5 degrees... but that is a very small angle!
+	if(_IA == C_IAMAX ) _IA = 0 ;
+	
+	// If we've drawn the third mandala,
+	// reset _IM and re-randomize _RBASE
+	if(_IM > 2)
+	{
+		_RBASE = randomInt(C_RBMIN,C_RBMAX) ;
+		_IM = 0 ;
+	}
+	
+	cnv = _M[_IM] ;
+	ctx = cnv.getContext('2d') ;
+	r 	= _RBASE * Math.pow(C_PHI,_IM) ;
+	a 	= _IA * C_DA ;
+	
+	// Reset canvas opacity and size before redrawing
+	cnv.style.opacity = 0 ;
+	cnv.style.width 	= C_MWIDTH + 'px' ;
+	cnv.style.height	= C_MHEIGHT + 'px' ;
+	
+	// Remember, "native size" of canvas is HALF of nominal width/height
+	ctx.clearRect(0, 0, C_MWIDTH / 2, C_MHEIGHT / 2) ;
+	
+	// Draw flower of life, centered on the canvas
+	// using previously calculated 'r' and 'a' values
+	// Remember, again, the native size of the canvas ...
+	// center of canvas will be (C_MWIDTH / 4)
+	drawFol(ctx, C_MWIDTH / 4, C_MHEIGHT / 4, r, a) ;
+	
+	// Set off chain of scale/fade tweens, which will
+	// eventually call 'spawnMandalaCycle' again
+	mGrowCycle(cnv) ;
+
+  // Thanks to CSS transforms, all we do is this ...
+  //cnv.className = 'm-cycle' ;
+	
+	// Advance to next canvas and next angle
+	// For the next time this fn is called...
+	_IM++ ;
+	_IA++ ;
+}
+
+function mGrowCycle(cnv)
+{
+	var twn = { s: 0, o: C_MOPAC_MIN } ;
+  var eas = TWEEN.Easing.Quartic.Out ;
+  
+	new TWEEN.Tween( twn )
+      .to( { s:C_MSCALE_MAX, o:C_MOPAC_MAX }, C_MSCALE_DUR )
+      .easing( eas )
+      .onComplete(function(){
+      		mDeathCycle(cnv) ;
+      	})
+      .onUpdate( function () {
+          cnv.style.opacity = twn.o ;
+          scaleFromCenter(cnv,twn.s) ;
+      }).start();
+}
+
+function mDeathCycle(cnv)
+{
+	var twn = { s: C_MSCALE_MAX, o: C_MOPAC_MAX } ;
+  var eas = TWEEN.Easing.Quartic.Out ;
+  
+	new TWEEN.Tween( twn )
+      .to( { s: 2 * C_MSCALE_MAX, o:0 }, C_MSCALE_DUR )
+      .easing( eas )
+      .onComplete(function(){}) // new mandala cycle already got spawned ...
+      .onUpdate( function () {
+          cnv.style.opacity = twn.o ;
+          //scaleFromCenter(cnv,twn.s) ;
+      }).start();
+}
+
+
+/*************************************************
+
+   DRAWING FUNCTIONS (MANDALAS, BUBBLES, DIGITS)
+
+**************************************************/
+
+
+function drawFol(ctx, cx, cy, r, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    drawSol(ctx, cx, cy, r, ao) ;
+
+    for(var i = 0; i < C_SEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
+        x = Math.round(cx + 2 * r * Math.cos(a)) ;
+        y = Math.round(cy + 2 * r * Math.sin(a)) ;
+
+        drawSol(ctx, x, y, r, a) ;
+    }
+}
+
+function drawSol(ctx, cx, cy, r, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    drawCell(ctx, cx, cy, r) ;
+
+    for(var i = 0; i < C_SEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
+        x = Math.round(cx + r * Math.cos(a)) ;
+        y = Math.round(cy + r * Math.sin(a)) ;
+        drawCell(ctx, x, y, r) ;
+    }
+}
+
+function drawCell(ctx, cx, cy, r){
+    var cR = 255 ;
+    var cG = 255 ;
+    var cB = 255 ;
+
+    var rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', 0.2)') ;
+    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', 0.5)') ;
+
+    ctx.beginPath() ;
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+    ctx.fillStyle = rg ;
+    ctx.fill() ;
+}
+
+// Scales mandala canvas M around its center point
+// by a factor of 's' where 0 < s < 1.0
+function scaleFromCenter(M,s)
+{
+		var w, h, cX, cY, cXNom, cYNom ;
+		
+		w = Math.round(C_MWIDTH 	* (1 + s)) ;
+		h = Math.round(C_MHEIGHT 	* (1 + s)) ;
+		
+    // Compute original (non-scaled) center point, AKA 'nominal' center point
+    cXNom = C_MWIDTH / 2 ;
+    cYNom = C_MHEIGHT / 2 ;
+    
+    // Compute current center point (with scaling factor applied)
+    cX		= w / 2 ;
+    cY		= h / 2 ;
+    
+    // Adjust width and height
+    M.style.width   = w + 'px' ;
+    M.style.height  = h + 'px' ;
+    
+    // NOW ... Adjust positioning to keep the mandala centered
+    M.style.left			= -1 * Math.round(cX - cXNom) + 'px' ;
+    M.style.top			= -1 * Math.round(cY - cYNom) + 'px' ;
+}
+
+// #SEC_JSMAIN
+function spawnBubble()
+{
+	//console.log('spawnBubble called ...' + _BUBREG.length) ;
+	
+	// If we've already spawned max number of bubbles, skip this...
+	if(_BUBREG.length > C_BUB_MAX){ console.log('Max bubbles exceeded ...') ; return ;}
+	
+	// Test value (random, between 0 and 1.0)
+	// If it falls outside the probability factor, do nothing. Return.
+	var p = C_BUB_SPAWNPROB ;					// TODO: pull this from defs array (probability factor)
+	var t = Math.random() ;
+	//console.log('T value: '+t+', P value: '+p) ;
+	
+	if(t > p) return ;
+	
+	// If we fall through to here, time to spawn a bubble ...
+	var cnvDom ;
+	
+	var r = randomInt(C_BUB_RADIUS_MIN, C_BUB_RADIUS_MAX) ;
+	var l = randomInt(C_BUB_LSPAN_MIN, C_BUB_LSPAN_MAX) ;
+	var o = randomInt(C_BUB_OPAC_MIN * 100, C_BUB_OPAC_MAX * 100) / 100 ;
+	
+	// Position bubble so its edges always remain within padding
+	var x = randomInt(C_BUB_EDGEPAD + 2 * r, _SCRWID - C_BUB_EDGEPAD - 2 * r) ;
+	var y = randomInt(C_BUB_EDGEPAD + 2 * r, _SCRHGT - C_BUB_EDGEPAD - 2 * r) ;
+	
+	var dx = randomInt(-1,1) ;
+	var dy = randomInt(-1,1) ;
+	
+	//console.log('Spawning bubble with r, o, l, x, y: '+r+', '+o+', '+l+', '+x+', '+y) ;
+	
+	// Create canvas, draw on it
+	cnvDom = drawBubbleCnv(r,3);
+	
+	// Attach event handler on <canvas> object
+	cnvDom.addEventListener('touchstart', bubClick, false);
+	
+	// Position canvas and set opacity to zero (in preparation for fade in)
+	cnvDom.style.left 		= x + 'px' ;
+	cnvDom.style.top 		= y + 'px' ;
+	cnvDom.style.opacity 	= 0	;
+	
+	// Tap/Click handler needs to lookup which bubble was hit
+	// Assign it a serial number, stored in the <canvas> id property
+	cnvDom.id = _BUB_TOTAL ;
+	
+	// Add to bubble registry, increment total bubble count
+	_BUBREG.push({'ser':_BUB_TOTAL,'cnv':cnvDom,'lspan':l,'r':r,'x':x,'y':y,'dx':dx,'dy':dy}) ;
+	
+	_BUB_TOTAL++ ;
+
+	// Finally ... append into parent container and start fade ...
+ 	document.getElementById('bubble-container').appendChild(cnvDom) ;
+ 	fadeElementIn(cnvDom,2000,function(){},o) ;
+}
+
+function updateBubReg()
+{
+	for(var i = 0; i < _BUBREG.length; i++)
+	{
+		if(_BUBREG[i].lspan <= 0)
+		{
+			popBub(i) ;
+			continue ;
+		}
+		
+		// Update bubble's position
+		_BUBREG[i].x = _BUBREG[i].x + _BUBREG[i].dx ;
+		_BUBREG[i].y = _BUBREG[i].y + _BUBREG[i].dy ;
+
+		_BUBREG[i].cnv.style.left 	= _BUBREG[i].x + 'px' ;
+		_BUBREG[i].cnv.style.top 		= _BUBREG[i].y + 'px' ;
+		
+		// Decrement lifecycle counter
+		_BUBREG[i].lspan = _BUBREG[i].lspan - C_UBR_INT ;
+	}
+}
+
+function popBub(i)
+{
+	var cnv ;
+	var x,y ;
+
+	// Scaling factor (px) applied just before disappearing
+	var wFac, hFac ;
+	
+	x = _BUBREG[i].x + _BUBREG[i].r ;
+	y = _BUBREG[i].y + _BUBREG[i].r ;
+	
+	// TODO: transfer bubble 'pre-burst expansion factor' 0.2 into constant
+	wFac = Math.floor(2 * _BUBREG[i].r * 0.2) ;
+	hFac = Math.floor(2 * _BUBREG[i].r * 0.2) ;
+
+	// center (x,y), blast radius 'r', particle count 'p'
+	// TODO: transfer blast radius scaling factor into constant
+	explode(x, y, Math.floor(_BUBREG[i].r * 1.7), randomInt(3,8)) ;
+	
+	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
+	//_BUBREG.splice(i,1) ;
+	
+	cnv = _BUBREG[i].cnv ;
+
+	// Set opacity to 100% to create a blast "flash" effect
+	// TODO: transfer final opacity into constant (or make relative to bubble opacity)
+	cnv.style.opacity 	= '0.8';
+	cnv.style.width 	= 2 * _BUBREG[i].r + wFac + 'px' ;
+	cnv.style.height 	= 2 * _BUBREG[i].r + hFac + 'px' ;
+
+	// Offset left and top coords to keep bubble centered
+	cnv.style.left		= _BUBREG[i].x - Math.floor(wFac / 2) + 'px' ;
+	cnv.style.top		= _BUBREG[i].y - Math.floor(hFac / 2) + 'px' ;
+	
+	// Remove from _BUBREG immediately, but leave canvas element briefly visible ...
+	_BUBREG.splice(i,1) ;
+
+	// TODO: transfer pre-burst expansion time into constant
+	window.setTimeout(function(){ cnv.parentNode.removeChild(cnv) },120) ;
+}
+
+// Ends the game
+function halt()
+{
+  //window.clearInterval('tweenTicker()') ;
+  
+  // TODO: wait until last bubble pops (or is popped)
+  // before displaying final results ...
+  window.clearInterval(_I3) ;
+  window.clearInterval(_I4) ;
+  window.clearInterval(_I5) ;
+  
+  var score = Math.round((_BUB_HIT / _BUB_TOTAL) * 100) ;
+  var str = 'Finished!'+"\n"
+  str += 'Bubbles Spawned: '+_BUB_TOTAL+"\n" ;
+  str += 'Bubbles Hit: '+_BUB_HIT+"\n" ;
+  str += 'Your Score: '+score+'%' ;
+  
+  //alert(str) ;
+  endSequence1() ;
+}
+
+// Triggers an explosion at center point (x,y)
+// With average blast radius 'r' and particle count 'p'
+
+function explode(x,y,r,p)
+{
+	var el ;								// Current particle we're working on ...
+	var da = 360 / p ;			// Angular spacing between particles (evenly distributed)
+	var w = 40 ;
+	
+	var aRad ;
+
+	var xFin, yFin ;						// Final x,y position 
+	
+	for(var i = 0; i < p; i++)
+	{
+		a = (i * da) ;
+		
+		el = document.createElement('img') ;
+		el.src = 'img/shard.gif' ;
+
+		el.className 		= 'shard' ;
+		
+		el.style.left 		= x + 'px' ;
+		el.style.top 		= y + 'px' ;
+		
+		// This should distort the image ...
+		el.style.height 	= '15px' ;
+		el.style.width		= '40px' ;
+		
+		el.style.webkitTransform = 'rotate('+a+'deg)' ;
+	
+		
+		document.getElementById('thebody').appendChild(el) ;
+
+		// Now, set new values for x, y, opacity to animate them
+		//r = 100 ; // TODO: add variance to this value
+
+		xFin = Math.floor(x + r * Math.cos(a)) ;
+		yFin = Math.floor(y + r * Math.sin(a)) ;
+
+		el.setAttribute('rel', xFin+':'+yFin) ;
+
+		_SHARDREG.push(el) ;
+	}
+	window.setTimeout(function(){
+		for(var i = 0; i < _SHARDREG.length; i++)
+		{
+			el = _SHARDREG[i] ;
+
+			xFin = el.getAttribute('rel').split(':')[0] ;
+			yFin = el.getAttribute('rel').split(':')[1] ;
+
+			console.log('Setting final position to '+xFin+', '+yFin) ;
+			el.style.left = xFin + 'px';
+			el.style.top = yFin + 'px' ;
+			el.style.opacity = '0' ;
+			el.style.width = '0' ;
+
+			// Mark for garbage collection
+			el.setAttribute('rel','CLEANUP') ;
+		}
+	},10) ;
+
+	window.setTimeout('shardRegGC()',100) ;
+}
+
+// 'Garbage Collects' on shardReg ...
+// I.E. removes all particles which have run
+function shardRegGC()
+{
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		//if(_SHARDREG[i].rCur < 1) continue ;
+		if(_SHARDREG[i].getAttribute('rel') != 'CLEANUP') continue ;
+
+		console.log('GC: Removing shard at index '+i) ;
+		// Remove DOM node and entry from _SHARDREG...
+		_SHARDREG[i].parentElement.removeChild(_SHARDREG[i])
+		_SHARDREG.splice(i,1) ;
+	}
+}
+
+
+/*************************************************
+
+   DRAWING FUNCTIONS (BUBBLES, DIGITS)
+
+**************************************************/
+
+// Creates a bubble <canvas>, draws a bubble on it,
+// returns <canvas> DOM ref
+// <canvas> is rendered at 2x native size for a slightly pixellated effect
+// 'r' refers to the radius of the SCALED bubble... SO.. we need to draw
+// it at 'half size' so it'll be correct when scaled up
+function drawBubbleCnv(r, e)
+{	
+	var cnv = document.createElement('canvas') ;
+	
+	// Draw bubble at half size and scale it up
+	// So it's a bit fuzzy like the SG mandalas ...
+	var rScaled = Math.round(r/2) ;
+	
+	cnv.width 					= 2 * rScaled ;
+	cnv.height 					= 2 * rScaled ;
+	cnv.style.position 	= 'absolute' ;
+	cnv.style.width 		= 2 * r + 'px' ;
+	cnv.style.height 		= 2 * r + 'px' ;
+	cnv.style.opacity 	= 0 ; // starts at zero, will be faded in
+	cnv.style.zIndex 		= 200 ;
+	
+	var ctx = cnv.getContext('2d') ;
+
+	if(!e) drawCell(ctx, rScaled, rScaled, rScaled) ;
+	else drawPoly(ctx, rScaled, rScaled, rScaled, 5) ;
+
+	return cnv ;
+}
+
+// Renders a numeric value into a grouping of digit <img>'s
+// iDig tracks which decimal place we're rendering (0=1's, 1=10's, 2=100's)
+function renderDigits(idPrefix,valInt)
+{
+	var dig ; // current digit being evaluated
+	var valStr = valInt.toString() ;
+	var el ; // current element of digit being rendered
+	
+	for(var i = 0 ; i < valStr.length; i++)
+	{
+		dig = valStr.substr(i,1) ;
+		
+		el = document.getElementById(idPrefix+'-'+i) ;
+		el.src = 'img/dig-'+dig+'.gif' ;
+		el.style.display = 'block' ;
+	}
+}
+
+// Used only for rendering the final score percentage ...
+function renderDigitsRight(idPrefix,valInt)
+{
+	var iDig = 0 ;
+	var dig ; // current digit being evaluated
+	var valStr = valInt.toString() ;
+	var el ; // current element of digit being rendered
+	
+	for(var i = valStr.length - 1 ; i >= 0; i--)
+	{
+		dig = valStr.substr(i,1) ;
+		
+		el = document.getElementById(idPrefix+'-'+iDig) ;
+		el.src = 'img/dig-'+dig+'.gif' ;
+		el.style.display = 'block' ;
+		
+		iDig++ ;
+	}
+}
+
+function bubClick(e)
+{	
+	var ser = e.target.id ;
+		
+	// Find index in _BUBREG of bubble with serial #  'ser'
+	for(var i = 0; i < _BUBREG.length; i++)
+	{
+		if(_BUBREG[i].ser == ser) break ;
+	}
+	
+	popBub(i) ;
+	
+	_BUB_HIT++ ;
+}
+
+function nextBg()
+{
+	// If we're on the last background already, we're done ... halt the game
+	if(_bgIdx == 6)
+	{
+		halt() ;
+		return ;
+	}
+	
+	// Retrieve background element and make it disappear!
+	var el = document.getElementById('bg-'+_bgIdx) ;
+		
+    fadeElementOut(el, 4600, function () {
+        // Remove from DOM tree once invisible ...
+        el.parentElement.removeChild(el) ;
+    });
+    
+    _bgIdx++ ;
+}
+
+
+/*************************************************
+
+   UTILITY / HELPER FUNCTIONS [#SEC_JSUTIL]
+
+**************************************************/
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function tweenTicker()
+{
+    TWEEN.update() ;
+}
+
+function fadeElementIn(el,dur,fnComplete,opacFinal)
+{
+    var opacTween = { opac: 0.0 } ;
+    if(!opacFinal) opacFinal = 1.0 ;
+    var eas = TWEEN.Easing.Quadratic.InOut ;
+
+    new TWEEN.Tween( opacTween )
+        .to( { opac:opacFinal }, dur )
+        .easing( eas )
+        .onComplete(fnComplete)
+        .onUpdate( function () {
+            el.style.opacity = opacTween.opac ;
+        }).start();
+}
+
+function fadeElementOut(el,dur,fnComplete,opacInit)
+{
+		if(!opacInit) opacInit = 1.0 ;
+		var opacTween = { opac: opacInit };
+		
+    var eas = TWEEN.Easing.Quadratic.InOut ;
+
+    new TWEEN.Tween( opacTween )
+        .to( { opac:0 }, dur )
+        .easing( eas )
+        .onComplete(fnComplete)
+        .onUpdate( function () {
+            el.style.opacity = opacTween.opac ;
+        }).start();
+}
+
+function drawPoly(ctx, cX, cY, r, edgeCount, aOffset)
+{
+	if(!aOffset) aOffset = 0 ;
+
+	var pts = getPolyPts(cX, cY, r, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, C_BUB_CRAD,0.6) ;
+
+	pts = getPolyPts(cX, cY, r - 1, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, C_BUB_CRAD,0.4) ;
+
+	pts = getPolyPts(cX, cY, r - 2, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, C_BUB_CRAD,0.3) ;
+	pts = getPolyPts(cX, cY, r - 3, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, C_BUB_CRAD,0.2) ;
+}
+
+function getPolyPts(cX, cY, r, edgeCount, aOffset)
+{
+	if(!aOffset) aOffset = 0 ;
+	
+	var a = 0 ;
+	var x = 0 ;
+	var y = 0 ;
+
+	var pts = [] ;
+
+	for(var i = 0; i < edgeCount; i++)
+	{
+		a = aOffset + 2 * Math.PI / edgeCount * i ;
+		x = cX + r * Math.cos(a) ;
+		y = cY + r * Math.sin(a) ;
+
+		pts.push([Math.round(x),Math.round(y)]) ;
+	}
+
+	return pts ;
+}
+
+// Lifted from http://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
+function doPolyDraw(ctx, pts, radius, opac) {
+  if (radius > 0) pts = getRoundedPoints(pts, radius);
+
+  var i, pt, len = pts.length;
+  ctx.beginPath();
+  for (i = 0; i < len; i++) {
+    pt = pts[i];
+    if (i == 0) {          
+      ctx.moveTo(pt[0], pt[1]);
+    } else {
+      ctx.lineTo(pt[0], pt[1]);
+    }
+    if (radius > 0) {
+      ctx.quadraticCurveTo(pt[2], pt[3], pt[4], pt[5]);
+    }
+  }
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(255,255,255,'+opac+')' ;
+  ctx.stroke() ;
+}
+
+function getRoundedPoints(pts, radius) {
+  var i1, i2, i3, p1, p2, p3, prevPt, nextPt,
+      len = pts.length,
+      res = new Array(len);
+  for (i2 = 0; i2 < len; i2++) {
+    i1 = i2-1;
+    i3 = i2+1;
+    if (i1 < 0) {
+      i1 = len - 1;
+    }
+    if (i3 == len) {
+      i3 = 0;
+    }
+    p1 = pts[i1];
+    p2 = pts[i2];
+    p3 = pts[i3];
+    prevPt = getRoundedPoint(p1[0], p1[1], p2[0], p2[1], radius, false);
+    nextPt = getRoundedPoint(p2[0], p2[1], p3[0], p3[1], radius, true);
+    res[i2] = [prevPt[0], prevPt[1], p2[0], p2[1], nextPt[0], nextPt[1]];
+  }
+  return res;
+};
+
+function getRoundedPoint(x1, y1, x2, y2, radius, first) {
+  var total = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)),
+      idx = first ? radius / total : (total - radius) / total;
+  return [x1 + (idx * (x2 - x1)), y1 + (idx * (y2 - y1))];
+};
+
+/*************************************************
+
+   TITLE, LAUNCH, END,ETC. SEQUENCES [#SEC_JSSEQ]
+
+**************************************************/
+function titleSequence1()
+{
+	_I2 = window.setInterval('tweenTicker()',C_TTICK_INT) ;
+	window.setTimeout('titleSequence2()',2000) ;
+}
+
+function titleSequence2()
+{
+	var el = document.getElementById('thebody') ;
+	el.addEventListener('touchstart',launchSequence1,false) ;
+
+	fadeElementOut(document.getElementById('title-bg-black'),2000,function(){
+		// Once fadeout is done, make 'tap to start' region active
+		// and start flashing 'tap to start' lettering
+		_ITTS = window.setInterval('ttsToggle()',1000) ;
+	}) ;
+}
+
+// Called on an interval, toggles 'tap to start' on and off
+function ttsToggle()
+{
+	var el = document.getElementById('title-lettr-tapstart') ;
+	if(el.style.display == 'block') el.style.display = 'none' ;
+	else el.style.display = 'block' ;
+}
+
+function launchSequence1()
+{
+	window.clearInterval(_ITTS) ;
+	
+	// Cancel event listener for 'tap to start'
+	document.getElementById('thebody').removeEventListener('touchstart',launchSequence1,false) ;
+	
+	document.getElementById('title-lettr-tapstart').style.display = 'none' ;
+	document.getElementById('title-lettr-title').style.display = 'none' ;
+	
+	var elDlog = document.getElementById('dlog-start') ; 
+	fadeElementIn(elDlog,1000,function(){
+			window.setTimeout(launchSequence2,1000)
+		}) ;
+}
+
+function launchSequence2()
+{
+	fadeElementIn(document.getElementById('lettr-ready'),1000,function(){
+			window.setTimeout('launchSequence3()',750) ;
+		}) ;
+}
+
+// Begin countdown
+
+function launchSequence3()
+{
+	var elCdDig = document.getElementById('countdown-digit') ;
+	
+	// Digit is already set to '5' through HTML markup
+	elCdDig.style.display = 'block' ;
+	
+	// after 1/3 second, initiate the dot sequence ...
+	window.setTimeout('launchSequence4()',333) ;
+}
+
+var cdDig = 3 ; // current countdown digit
+var iDot 	= 1 ; // counts number of dots displayed
+function launchSequence4()
+{
+	if(iDot > 3 && cdDig == 1)
+	{
+		launchSequence5() ;
+		return ;
+	}
+	
+	if(iDot > 3)
+	{
+		document.getElementById('countdown-dot-1').style.display = 'none' ;
+		document.getElementById('countdown-dot-2').style.display = 'none' ;
+		document.getElementById('countdown-dot-3').style.display = 'none' ;
+		
+		iDot = 1 ;
+		cdDig-- ;
+		
+		// Decrement coundown digit
+		document.getElementById('countdown-digit').src = 'img/dig-'+cdDig+'.gif' ;
+		
+		// Wait another 1/3 second, call launchSequence4 again ...
+		window.setTimeout('launchSequence4()',333) ;
+		return ;
+	}
+	
+	document.getElementById('countdown-dot-'+iDot).style.display = 'block' ;
+	
+	iDot++ ;
+	
+	// After 1/3 second, show the next dot...
+	window.setTimeout('launchSequence4()',333) ;
+}
+
+function launchSequence5()
+{
+	fadeElementOut(document.getElementById('dlog-start'),1000,launchSequence6) ;
+}
+
+// Final step ... draw the canvases, set the tickers... and pull the curtain
+function launchSequence6()
+{
+    // Preload sound effects
+    //for(var i = 0; i <=9; i++) _SND_BURST[i] = new Audio('snd/explode'+i+'.aiff') ;
+    // _SND_BURST[0] = new Audio('snd/explode1.aiff') ;
+    
+    // Fire up tickers needed for game ...
+    _I3 = window.setInterval('nextBg()',60000) ;
+    _I4 = window.setInterval('spawnBubble()',C_SBB_INT) ;
+	_I5 = window.setInterval('updateBubReg()',C_UBR_INT) ;
+	//_I6 = window.setInterval('updateShardReg()',C_USR_INT) ;
+		
+	// Start SG generator
+	initSgGen() ;
+	
+	// Pull the curtain
+	fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
+}
+
+
+// Called when game ends
+function endSequence1()
+{
+	var score = Math.round((_BUB_HIT / _BUB_TOTAL) * 100) ;
+	
+	// First step, render _BUBTOTAL, _BUBHIT and score ...
+  renderDigits('total-dig',_BUB_TOTAL) ;
+	renderDigits('popped-dig',_BUB_HIT) ;
+	renderDigitsRight('score-dig',score) ;
+		
+	fadeElementIn(document.getElementById('dlog-end'),1000,endSequence2) ;
+}
+
+// Show 'total' label
+function endSequence2()
+{
+	document.getElementById('lettr-total').style.display = 'block' ;
+	window.setTimeout('endSequence3()',500) ;
+}
+
+// Reveal 'total' label dots
+function endSequence3()
+{
+	var elTotal = document.getElementById('lettr-total')
+	var tween = { width: 94 } ;
+  	new TWEEN.Tween( tween )
+      .to( { width:360 }, 1200 )
+      .easing( TWEEN.Easing.Linear.None )
+      .onComplete(function(){window.setTimeout('endSequence4()',500)})
+      .onUpdate( function () {
+          elTotal.style.width = tween.width+'px' ;
+      }).start();
+}
+
+// Show 'total' value
+function endSequence4()
+{
+	document.getElementById('total-dig-0').style.opacity = 1 ;
+	document.getElementById('total-dig-1').style.opacity = 1 ;
+	document.getElementById('total-dig-2').style.opacity = 1 ;
+	
+	window.setTimeout('endSequence5()',1000) ;
+}
+
+// Reveal 'popped' label
+function endSequence5()
+{
+	document.getElementById('lettr-popped').style.display = 'block' ;
+	window.setTimeout('endSequence6()',500) ;
+}
+
+// Reveal 'popped' label dots
+function endSequence6()
+{
+	var elPopped = document.getElementById('lettr-popped') ;
+	var tween = { width: 94 } ;
+  	new TWEEN.Tween( tween )
+      .to( { width:360 }, 1200 )
+      .easing( TWEEN.Easing.Linear.None )
+      .onComplete(function(){window.setTimeout('endSequence7()',500)})
+      .onUpdate( function () {
+          elPopped.style.width = tween.width+'px' ;
+      }).start();
+}
+
+// Show 'popped' value
+function endSequence7()
+{
+	document.getElementById('popped-dig-0').style.opacity = 1 ;
+	document.getElementById('popped-dig-1').style.opacity = 1 ;
+	document.getElementById('popped-dig-2').style.opacity = 1 ;
+	
+	window.setTimeout('endSequence8()',1200) ;
+}
+
+// Show final score
+function endSequence8()
+{
+	document.getElementById('lettr-score').style.display = 'block' ;
+	document.getElementById('score-dig-0').style.opacity = 1 ;
+	document.getElementById('score-dig-1').style.opacity = 1 ;
+	document.getElementById('score-dig-2').style.opacity = 1 ;
+}
+
+</script>
+</body>
+</html>
