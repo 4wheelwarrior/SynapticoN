@@ -688,14 +688,27 @@ function halt()
 
 function explode(x,y,r,p)
 {
-	var el ;								// Current particle we're working on ...
+	var el ;					// Current particle we're working on ...
 	var da = 360 / p ;			// Angular spacing between particles (evenly distributed)
 	var w = 40 ;
 	
 	var aRad ;
 
-	var xFin, yFin ;						// Final x,y position 
+	var xFin, yFin ;			// Final x,y position of current particle
+
+	var elBurst ;				// <img> element for animated gif burst
 	
+	var elBody = document.getElementById('thebody') ;
+
+	// Create burst element
+	elBurst = document.createElement('img') ;
+	elBurst.src 			= "img/burst.gif" ;
+	elBurst.style.position 	= 'absolute' ;
+	elBurst.style.zIndex 	= '3000' ;
+	elBurst.style.left 		= x + 'px' ;
+	elBurst.style.top 		= y + 'px' ;
+
+	// Create particles
 	for(var i = 0; i < p; i++)
 	{
 		a = (i * da) ;
@@ -715,7 +728,7 @@ function explode(x,y,r,p)
 		el.style.webkitTransform = 'rotate('+a+'deg)' ;
 	
 		
-		document.getElementById('thebody').appendChild(el) ;
+		elBody.appendChild(el) ;
 
 		// Now, set new values for x, y, opacity to animate them
 		//r = 100 ; // TODO: add variance to this value
@@ -727,6 +740,13 @@ function explode(x,y,r,p)
 
 		_SHARDREG.push(el) ;
 	}
+
+	// Append explosion gif ...
+	elBody.appendChild(elBurst) ;
+
+	// TODO: make sure burst anim gets cleaned up ... 
+
+	// And shortly afterwards, begin animation on shards ...
 	window.setTimeout(function(){
 		for(var i = 0; i < _SHARDREG.length; i++)
 		{
@@ -736,6 +756,7 @@ function explode(x,y,r,p)
 			yFin = el.getAttribute('rel').split(':')[1] ;
 
 			console.log('Setting final position to '+xFin+', '+yFin) ;
+			
 			el.style.left = xFin + 'px';
 			el.style.top = yFin + 'px' ;
 			el.style.opacity = '0' ;
