@@ -8,7 +8,7 @@
 
 <script>
 // #SEC_JSHEAD
-var C_TTICK_INT   			= 250 ;		// Tween ticker interval (msec)
+var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
 var C_RBMIN					= 20 ;		// Min value of base radius (native canvas size)
 var C_RBMAX					= 40 ;		// Max value of base radius (display size will be 2x this)
@@ -39,6 +39,8 @@ var C_BUB_OPAC_MAX			= 0.30 ;	// Max opacity
 var C_BUB_EDGEPAD			= 10 ;		// Padding for bubble region (from screen edges)
 var C_BUB_EXPRATE			= 1 ;		// Expansion rate of bubble's radius (pixels per tick)
 
+var C_BUB_PBOPAC			= 0.40 		// Bubble opacity becomes this value before bursting
+var C_BUB_PBEXP				= 0.13 ;	// Bubble scales up by this factor before bursting
 var C_BUB_GEOM				= [ [99], 	// Which polygons for each colour.Starting @ RED
 								[99], 					// ORG
 								[3,4,99],				// YEL
@@ -432,7 +434,7 @@ function spawnMandalaCycle()
 function mGrowCycle(cnv)
 {
 	var twn = { s: 0, o: C_MOPAC_MIN } ;
-  var eas = TWEEN.Easing.Quartic.Out ;
+  	var eas = TWEEN.Easing.Quartic.Out ;
   
 	new TWEEN.Tween( twn )
       .to( { s:C_MSCALE_MAX, o:C_MOPAC_MAX }, C_MSCALE_DUR )
@@ -596,7 +598,7 @@ function spawnBubble()
 	cnvDom.id = _BUB_TOTAL ;
 	
 	// Add to bubble registry, increment total bubble count
-	_BUBREG.push({'ser':_BUB_TOTAL,'cnv':cnvDom,'lspan':l,'r':r,'x':x,'y':y,'dx':dx,'dy':dy}) ;
+	_BUBREG.push({'ser':_BUB_TOTAL,'cnv':cnvDom,'lspan':l,'o':o,'r':r,'x':x,'y':y,'dx':dx,'dy':dy}) ;
 	
 	_BUB_TOTAL++ ;
 
@@ -638,9 +640,9 @@ function popBub(i)
 	x = _BUBREG[i].x + _BUBREG[i].r ;
 	y = _BUBREG[i].y + _BUBREG[i].r ;
 	
-	// TODO: transfer bubble 'pre-burst expansion factor' 0.2 into constant
-	wFac = Math.floor(2 * _BUBREG[i].r * 0.2) ;
-	hFac = Math.floor(2 * _BUBREG[i].r * 0.2) ;
+	// Calculate 'pre-burst expansion' values (size expands by this many pixels)
+	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
+	hFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
@@ -651,9 +653,7 @@ function popBub(i)
 	
 	cnv = _BUBREG[i].cnv ;
 
-	// Set opacity to 100% to create a blast "flash" effect
-	// TODO: transfer final opacity into constant (or make relative to bubble opacity)
-	cnv.style.opacity 	= '0.8';
+	cnv.style.opacity 	= C_BUB_PBOPAC ;
 	cnv.style.width 	= 2 * _BUBREG[i].r + wFac + 'px' ;
 	cnv.style.height 	= 2 * _BUBREG[i].r + hFac + 'px' ;
 
@@ -702,7 +702,7 @@ function explode(x,y,r,p)
 
 	var xFin, yFin ;			// Final x,y position of current particle
 
-	var elBurst ;				// <img> element for animated gif burst
+	//var elBurst ;				// <img> element for animated gif burst
 	
 	var elBody = document.getElementById('thebody') ;
 
