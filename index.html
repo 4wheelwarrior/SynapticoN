@@ -133,7 +133,20 @@ var _IA	;				// Multiplier  on _DA to determine offset angle of mandala
 </head>
 <!-- #SEC_HTML -->
 <body id="thebody" style="margin:0; padding:0">
-	<div id="build-number" style="position:absolute; z-index: 15000; color:white">BUILD 0015</div>
+	<a id="bn-hide"
+	   style="position: absolute; z-index: 15500; width: 100px; height: 100px"
+	   href="javascript:hideBN()"></a>
+
+	<script>
+		function hideBN()
+		{
+			document.getElementById('build-number').style.display = 'none' ;
+			document.getElementById('bn-hide').style.display = 'none' ;
+		}
+	</script>
+	<iframe id="build-number"
+	        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
+	        src="build.txt"></iframe>
 	
 	<audio id="explode0"><source src="snd/explode0.ogg"></audio>
 	<audio id="explode1"><source src="snd/explode1.ogg"></audio>
@@ -1166,11 +1179,15 @@ function launchSequence6()
 		
 	// Start SG generator
 	initSgGen() ;
-	
+
 	// Pull the curtain
 	fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
 }
 
+function bnHide(e)
+{
+	document.getElementById('build-number').style.display = 'none' ;
+}
 
 // Called when game ends
 function endSequence1()
