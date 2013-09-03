@@ -7,6 +7,7 @@
 <script src="tween.js"></script>
 
 <script>
+var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
@@ -599,7 +600,7 @@ function spawnBubble()
 	cnvDom = drawBubbleCnv(r,sides);
 	
 	// Attach event handler on <canvas> object
-	cnvDom.addEventListener('click', bubClick, false);
+	cnvDom.addEventListener(C_TAPEVENT, bubClick, false);
 	
 	// Position canvas and set opacity to zero (in preparation for fade in)
 	cnvDom.style.left 		= x + 'px' ;
@@ -1071,7 +1072,7 @@ function titleSequence1()
 function titleSequence2()
 {
 	var el = document.getElementById('thebody') ;
-	el.addEventListener('click',launchSequence1,false) ;
+	el.addEventListener(C_TAPEVENT,launchSequence1,false) ;
 
 	fadeElementOut(document.getElementById('title-bg-black'),2000,function(){
 		// Once fadeout is done, make 'tap to start' region active
@@ -1093,7 +1094,7 @@ function launchSequence1()
 	window.clearInterval(_ITTS) ;
 	
 	// Cancel event listener for 'tap to start'
-	document.getElementById('thebody').removeEventListener('click',launchSequence1,false) ;
+	document.getElementById('thebody').removeEventListener(C_TAPEVENT,launchSequence1,false) ;
 	
 	document.getElementById('title-lettr-tapstart').style.display = 'none' ;
 	document.getElementById('title-lettr-title').style.display = 'none' ;
