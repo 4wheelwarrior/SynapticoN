@@ -1071,18 +1071,18 @@ function titleSequence1()
 	_I2 = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
 
-	// _MEDIA = new Media('snd/tone.aiff',
- //        // success callback
- //        function() {
- //            //console.log("playAudio():Audio Success");
- //            //alert('Audio Success') ;
- //        },
- //        // error callback
- //        function(err) {
- //            //console.log("playAudio():Audio Error: "+err);
- //            alert('Audio Error...') ;
- //    	}
- //    );
+	_MEDIA = new Media('snd/tone.wav',
+        // success callback
+        function() {
+            //console.log("playAudio():Audio Success");
+            //alert('Audio Success') ;
+        },
+        // error callback
+        function(err) {
+            //console.log("playAudio():Audio Error: "+err);
+            alert('Audio Error...') ;
+    	}
+    );
 
     //_IMEDIA = window.setInterval(function(){_MEDIA.play()},10000)
 }
@@ -1195,13 +1195,16 @@ function launchSequence6()
     _I4 = window.setInterval('spawnBubble()',C_SBB_INT) ;
 	_I5 = window.setInterval('updateBubReg()',C_UBR_INT) ;
 	//_I6 = window.setInterval('updateShardReg()',C_USR_INT) ;
-		
+	
+	// Play tone loop
+	_MEDIA.play() ;
+
 	// Start SG generator
 	initSgGen() ;
 
 	// Pull the curtain
 	fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
-	//_MEDIA.play() ;
+	
 }
 
 function bnHide(e)
