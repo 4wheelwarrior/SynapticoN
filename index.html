@@ -1081,9 +1081,10 @@ function titleSequence1()
         function(err) {
             //console.log("playAudio():Audio Error: "+err);
             alert('Audio Error...') ;
-    });
+    	}
+    );
 
-    _IMEDIA = window.setInterval(function(){_MEDIA.play()},10000)
+    //_IMEDIA = window.setInterval(function(){_MEDIA.play()},10000)
 }
 
 function titleSequence2()
@@ -1200,6 +1201,7 @@ function launchSequence6()
 
 	// Pull the curtain
 	fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
+	_MEDIA.play() ;
 }
 
 function bnHide(e)
