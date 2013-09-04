@@ -1071,18 +1071,18 @@ function titleSequence1()
 	_I2 = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
 
-	_MEDIA = new Media('snd/tone.aiff',
-        // success callback
-        function() {
-            //console.log("playAudio():Audio Success");
-            //alert('Audio Success') ;
-        },
-        // error callback
-        function(err) {
-            //console.log("playAudio():Audio Error: "+err);
-            alert('Audio Error...') ;
-    	}
-    );
+	// _MEDIA = new Media('snd/tone.aiff',
+ //        // success callback
+ //        function() {
+ //            //console.log("playAudio():Audio Success");
+ //            //alert('Audio Success') ;
+ //        },
+ //        // error callback
+ //        function(err) {
+ //            //console.log("playAudio():Audio Error: "+err);
+ //            alert('Audio Error...') ;
+ //    	}
+ //    );
 
     //_IMEDIA = window.setInterval(function(){_MEDIA.play()},10000)
 }
@@ -1201,7 +1201,7 @@ function launchSequence6()
 
 	// Pull the curtain
 	fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
-	_MEDIA.play() ;
+	//_MEDIA.play() ;
 }
 
 function bnHide(e)
