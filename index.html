@@ -1080,7 +1080,12 @@ function titleSequence1()
         // error callback
         function(err) {
             //console.log("playAudio():Audio Error: "+err);
-            alert('Audio Error... '+err) ;
+            var output = '';
+			for (property in err) {
+			  output += property + ': ' + err[property]+'; ';
+			}
+			//alert(output);
+            alert('Audio Error... '+output) ;
     	}
     );
 
