@@ -130,6 +130,9 @@ var _RBASE ;			// Base radius of mandala set being drawn
 var _R ;				// Radius of current mandala being drawn
 var _IA	;				// Multiplier  on _DA to determine offset angle of mandala
 
+var _MEDIA ;			// PhoneGap media object ...
+var _IMEDIA ;			// Interval calling _MEDIA.play() ...
+
 </script>
 </head>
 <!-- #SEC_HTML -->
@@ -1067,6 +1070,20 @@ function titleSequence1()
 {
 	_I2 = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
+
+	_MEDIA = new Media('snd/tone.aiff',
+        // success callback
+        function() {
+            //console.log("playAudio():Audio Success");
+            //alert('Audio Success') ;
+        },
+        // error callback
+        function(err) {
+            //console.log("playAudio():Audio Error: "+err);
+            alert('Audio Error...') ;
+    });
+
+    _IMEDIA = window.setInterval(function(){_MEDIA.play()},10000)
 }
 
 function titleSequence2()
