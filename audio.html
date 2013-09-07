@@ -13,13 +13,13 @@
         // device APIs are available
         //
         function onDeviceReady() {
-            path = window.location.pathname;
-            alert('App path is ' + path) ;
-            path = path.replace('audio.html','www/snd/tone-44.wav') ;
-            var url = 'file:/' + path ;
-            alert('Playing audio from URL ' + url) ;
+            //path = window.location.pathname;
+            //alert('App path is ' + path) ;
+            //path = path.replace('audio.html','www/snd/tone-44.wav') ;
+            //var url = 'file:/' + path ;
+            //alert('Playing audio from URL ' + url) ;
             
-            playAudio(url);
+            playAudio('http://audio.ibeat.org/content/p1rj1s/p1rj1s_-_rockGuitar.mp3');
         }
 
         // Audio player
