@@ -8,20 +8,20 @@
         function playAudio()
         {
             alert('Playing Loop') ;
-            document.getElementbyId('my-audio').play() ;
+            document.getElementById('my-audio').play() ;
         }
 
         function playAudio2()
         {
             //alert('Playing Audio') ;
-            document.getElementbyId('my-burst').play() ;
+            document.getElementById('my-burst').play() ;
         }
         </script>
       </head>
       <body>
         <a href="javascript:playAudio()">Play Audio</a>
         <a href="javascript:playAudio2()">Play Burst</a>
-        
+
         <audio id="my-audio" preload="auto">
            <source src="snd/tone-44.wav">
         </audio>
