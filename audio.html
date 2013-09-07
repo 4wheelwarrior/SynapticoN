@@ -13,6 +13,8 @@
         // device APIs are available
         //
         function onDeviceReady() {
+            var path = window.location.pathname;
+            alert('App path is ' + path) ;
             playAudio("snd/tone.mp3");
         }
 
