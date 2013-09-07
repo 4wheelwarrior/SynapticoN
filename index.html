@@ -7,7 +7,7 @@
 <script src="tween.js"></script>
 
 <script>
-var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
+var C_TAPEVENT				= 'click' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
@@ -21,10 +21,12 @@ var C_MWIDTH 				= 1024 ;	// Mandala base size (starts here, scales up)
 var C_MHEIGHT 				= 768 ;
 
 var C_MSCALE_MAX 			= 0.15 ;	// Scale mandala UP by this factor before fading out
-																	// EG 0.3 = 30% means 800px will scale to 800 + (30% * 800)
+										// EG 0.3 = 30% means 800px will scale to 800 + (30% * 800)
 													
 var C_MOPAC_MIN				= 0.0 ;		// Min/Max opacities of mandalas as they grow
-var C_MOPAC_MAX				= 0.15 ;
+//var C_MOPAC_MAX				= 0.15 ;
+
+var C_MOPAC_MAX 			= [0.10,0.15,0.25,0.10,0.05,0.10,0.20] ;
 
 var C_MSCALE_DUR			= 12000 ;	// Duration of life and death cycle (total cycle is 2x)
 var C_MSPAWN_INT  			= 6000 ;	// Interval on which new mandalas are spawned
@@ -35,8 +37,24 @@ var C_BUB_LSPAN_MIN			= 4000 ; 	// Min lifespan of a bubble (msec)
 var C_BUB_LSPAN_MAX			= 8000 ;	// Max lifespan
 var C_BUB_RADIUS_MIN		= 30 ;		// Min radius of bubble (pixels)
 var C_BUB_RADIUS_MAX		= 70 ;		// Max radius
-var C_BUB_OPAC_MIN			= 0.15 ;	// Min opacity of bubble (0 - 1.0, css opacity)
-var C_BUB_OPAC_MAX			= 0.30 ;	// Max opacity
+//var C_BUB_OPAC_MIN			= 0.15 ;	// Min opacity of bubble (0 - 1.0, css opacity)
+//var C_BUB_OPAC_MAX			= 0.30 ;	// Max opacity
+
+var C_BUBDX_MIN				= -1 ;		// "Bubble Dynamics" ... roughly put
+var C_BUBDX_MAX				= 1 ;
+
+var C_BUBDY_MIN				= -1 ;
+var C_BUBDY_MAX				= 1 ;
+
+var C_BUBDWS_MIN			= 80 ;		// These get divided by 100 to produce an actual scale value
+var C_BUBDWS_MAX			= 120 ;		// Between 0.8 and 1.2
+
+var C_BUBDHS_MIN			= -1 ;
+var C_BUBDHS_MAX			= 1 ;
+
+var C_BUB_OPAC 				= [0.20,0.20,0.20,0.15,0.10,0.10,0.20] ;
+
+var C_BUB_FADEIN			= 3000 ;	// ms for a bubble to fade into existence
 var C_BUB_EDGEPAD			= 10 ;		// Padding for bubble region (from screen edges)
 var C_BUB_EXPRATE			= 1 ;		// Expansion rate of bubble's radius (pixels per tick)
 
@@ -54,6 +72,8 @@ var C_BUB_GEOM				= [ [99], 	// Which polygons for each colour.Starting @ RED
 var C_BUB_CRAT				= 0.16; 	// Corner radius of polygon bubbles, ratio of radius
 
 var C_UBR_INT				= 500 ;		// ms between calls of updateBubReg()
+var C_UBD_INT				= 2000 ;    // ms between calls of updateBubDyn()
+
 var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
 var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
 var C_SRGC_MAX				= 10 ;		// After this many calls to updateShardReg(), GC is triggered
@@ -85,7 +105,8 @@ var _ITWN ; // tween ticker
 var _ITTS ; // tap to start flasher
 var _IBSP ; // bubble spawner
 var _ISWC ; // swap colour
-var _IUBR ; // updateBubbleReg
+var _IUBR ; // updateBubReg
+var _IUBD ; // updateBubDyn
 var _ICDN ; // coundown sequence at beginning
 var _IMSP ; // mandala spawn interval
 
@@ -171,7 +192,7 @@ var _IMEDIA ;			// Interval calling _MEDIA.play() ...
 	
 	<div id="dlog-start">
 		<img 	src="img/lettr-popbubs.gif"
-				 	style="position: absolute; left:66px; top:130px; opacity: 0.66" />
+				 	style="position: absolute; left:94px; top:130px; opacity: 0.66" />
 					
 		<img 	src="img/lettr-ready.gif" id="lettr-ready"
 					style="position: absolute; left:196px; top:205px; opacity: 0" />
@@ -273,11 +294,11 @@ html,body{
 #title-lettr-title{
 	position: absolute ;
 	z-index: 620 ;
-	width: 341px ;
-	height: 93px ;
-	left: 322px ;
+	width: 356px ;
+	height: 110px ;
+	left: 334px ;
 	top: 300px ;
-	background: url('img/lettr-title.gif') ;
+	background: url('img/lettr-title.png') ;
 }
 
 #title-lettr-tapstart{
@@ -454,7 +475,7 @@ function mGrowCycle(cnv)
   	var eas = TWEEN.Easing.Quartic.Out ;
   
 	new TWEEN.Tween( twn )
-      .to( { s:C_MSCALE_MAX, o:C_MOPAC_MAX }, C_MSCALE_DUR )
+      .to( { s:C_MSCALE_MAX, o:C_MOPAC_MAX[_bgIdx] }, C_MSCALE_DUR )
       .easing( eas )
       .onComplete(function(){
       		mDeathCycle(cnv) ;
@@ -467,8 +488,8 @@ function mGrowCycle(cnv)
 
 function mDeathCycle(cnv)
 {
-	var twn = { s: C_MSCALE_MAX, o: C_MOPAC_MAX } ;
-  var eas = TWEEN.Easing.Quartic.Out ;
+	var twn = { s: C_MSCALE_MAX, o: C_MOPAC_MAX[_bgIdx] } ;
+  	var eas = TWEEN.Easing.Quartic.Out ;
   
 	new TWEEN.Tween( twn )
       .to( { s: 2 * C_MSCALE_MAX, o:0 }, C_MSCALE_DUR )
@@ -584,14 +605,22 @@ function spawnBubble()
 	
 	var r = randomInt(C_BUB_RADIUS_MIN, C_BUB_RADIUS_MAX) ;
 	var l = randomInt(C_BUB_LSPAN_MIN, C_BUB_LSPAN_MAX) ;
-	var o = randomInt(C_BUB_OPAC_MIN * 100, C_BUB_OPAC_MAX * 100) / 100 ;
-	
+	//var o = randomInt(C_BUB_OPAC_MIN * 100, C_BUB_OPAC_MAX * 100) / 100 ;
+	var o = C_BUB_OPAC[_bgIdx] ;
+
 	// Position bubble so its edges always remain within padding
 	var x = randomInt(C_BUB_EDGEPAD + 2 * r, _SCRWID - C_BUB_EDGEPAD - 2 * r) ;
 	var y = randomInt(C_BUB_EDGEPAD + 2 * r, _SCRHGT - C_BUB_EDGEPAD - 2 * r) ;
+
+	// Start out perfectly round (CSS transform: scale(1,1))
+	var ws = 1 ;
+	var hs = 1 ;
 	
-	var dx = randomInt(-1,1) ;
-	var dy = randomInt(-1,1) ;
+	var dx = randomInt(C_BUBDX_MIN,C_BUBDX_MAX) ;
+	var dy = randomInt(C_BUBDY_MIN,C_BUBDY_MAX) ;
+
+	var dws = randomInt(C_BUBDWS_MIN,C_BUBDWS_MAX) / 1000 ;
+	var dhs = randomInt(C_BUBDHS_MIN,C_BUBDHS_MAX) / 1000 ;
 
 	// Look up valid geometries for colour we're on, randomly select one
 	var geom = C_BUB_GEOM[_bgIdx] ;
@@ -602,6 +631,7 @@ function spawnBubble()
 	// Create canvas, draw on it
 	cnvDom = drawBubbleCnv(r,sides);
 	
+	// TODO: see about blanket listener on parent element, would it decrease latency?
 	// Attach event handler on <canvas> object
 	cnvDom.addEventListener(C_TAPEVENT, bubClick, false);
 	
@@ -615,22 +645,59 @@ function spawnBubble()
 	cnvDom.id = _BUB_TOTAL ;
 	
 	// Add to bubble registry, increment total bubble count
-	_BUBREG.push({'ser':_BUB_TOTAL,'cnv':cnvDom,'lspan':l,'o':o,'r':r,'x':x,'y':y,'dx':dx,'dy':dy}) ;
+	_BUBREG.push({	'ser':_BUB_TOTAL,
+					'cnv':cnvDom,
+					'lspan':l,
+					'o':o,'r':r,'x':x,'y':y,'ws':ws,'hs':hs,
+					'dx':dx,'dy':dy,
+					'dws':dws,'dhs':dhs}) ;
 	
 	_BUB_TOTAL++ ;
 
 	// Finally ... append into parent container and start fade ...
  	document.getElementById('bubble-container').appendChild(cnvDom) ;
- 	fadeElementIn(cnvDom,2000,function(){},o) ;
+ 	fadeElementIn(cnvDom,C_BUB_FADEIN,function(){},o) ;
+}
+
+// Called on an interval 1/4~ish of bubble's lifespan
+// changes direction, height/width scaling
+// applies to random bubbles in bubble registry
+function updateBubDyn()
+{
+	console.log('UBD called...') ;
+	var p = 0.2 ;
+	var t ;
+
+	for(var i = 0; i < _BUBREG.length; i++)
+	{
+		t = Math.random() ;
+		if(t > p) continue ;
+
+		_BUBREG[i].dx = randomInt(C_BUBDX_MIN,C_BUBDX_MAX) ;
+		_BUBREG[i].dy = randomInt(C_BUBDY_MIN,C_BUBDY_MAX) ;
+
+		_BUBREG[i].dws = randomInt(C_BUBDWS_MIN,C_BUBDWS_MAX) / 1000 ;
+		_BUBREG[i].dhs = randomInt(C_BUBDHS_MIN,C_BUBDHS_MAX) / 1000 ;
+	}
 }
 
 function updateBubReg()
 {
+	var burstX ;
+	var burstY ;
+
 	for(var i = 0; i < _BUBREG.length; i++)
 	{
 		if(_BUBREG[i].lspan <= 0)
 		{
-			popBub(i) ;
+			burstX = _BUBREG[i].x + _BUBREG[i].r ;
+			burstY = _BUBREG[i].y + _BUBREG[i].r ;
+
+			// TODO: make these constants ...
+			burstX -= randomInt(0,5) ;
+			burstY -= randomInt(0,5) ;
+
+			popBub(i, burstX, burstY) ;
 			continue ;
 		}
 		
@@ -638,24 +705,35 @@ function updateBubReg()
 		_BUBREG[i].x = _BUBREG[i].x + _BUBREG[i].dx ;
 		_BUBREG[i].y = _BUBREG[i].y + _BUBREG[i].dy ;
 
-		_BUBREG[i].cnv.style.left 	= _BUBREG[i].x + 'px' ;
+		// Update bubble's width/height scale
+		_BUBREG[i].ws = _BUBREG[i].ws + _BUBREG[i].dws ;
+		_BUBREG[i].hs = _BUBREG[i].hs + _BUBREG[i].dhs ;
+
+		// Apply transformation
+		_BUBREG[i].cnv.style.left 		= _BUBREG[i].x + 'px' ;
 		_BUBREG[i].cnv.style.top 		= _BUBREG[i].y + 'px' ;
+		
+		//_BUBREG[i].cnv.style.webkitTransform = 'scale(' + _BUBREG[i].ws + ',' + _BUBREG[i].hs + ')' ; 
+
+		//_BUBREG[i].cnv.style.width 		= _BUBREG[i].w + 'px' ;
+		//_BUBREG[i].cnv.style.height 	= _BUBREG[i].h + 'px' ;
 		
 		// Decrement lifecycle counter
 		_BUBREG[i].lspan = _BUBREG[i].lspan - C_UBR_INT ;
 	}
 }
 
-function popBub(i)
+// x,y coordinates for center of explosion
+function popBub(i,x,y)
 {
 	var cnv ;
-	var x,y ;
+	//var x,y ;
 
 	// Scaling factor (px) applied just before disappearing
 	var wFac, hFac ;
 	
-	x = _BUBREG[i].x + _BUBREG[i].r ;
-	y = _BUBREG[i].y + _BUBREG[i].r ;
+	//x = _BUBREG[i].x + _BUBREG[i].r ;
+	//y = _BUBREG[i].y + _BUBREG[i].r ;
 	
 	// Calculate 'pre-burst expansion' values (size expands by this many pixels)
 	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
@@ -895,7 +973,7 @@ function bubClick(e)
 		if(_BUBREG[i].ser == ser) break ;
 	}
 	
-	popBub(i) ;
+	popBub(i,e.pageX,e.pageY) ;
 	
 	_BUB_HIT++ ;
 }
@@ -1071,7 +1149,7 @@ function titleSequence1()
 	//window.location.href = 'audio.html' ;
 	//return 0 ;
 
-	_I2 = window.setInterval('tweenTicker()',C_TTICK_INT) ;
+	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
 
 	// _MEDIA = new Media('snd/tone.ogg',
@@ -1098,12 +1176,12 @@ function titleSequence1()
 function titleSequence2()
 {
 	var el = document.getElementById('thebody') ;
-	el.addEventListener(C_TAPEVENT,launchSequence1,false) ;
 
 	fadeElementOut(document.getElementById('title-bg-black'),2000,function(){
 		// Once fadeout is done, make 'tap to start' region active
 		// and start flashing 'tap to start' lettering
 		_ITTS = window.setInterval('ttsToggle()',1000) ;
+		el.addEventListener(C_TAPEVENT,launchSequence1,false) ;
 	}) ;
 }
 
@@ -1199,10 +1277,10 @@ function launchSequence6()
     // _SND_BURST[0] = new Audio('snd/explode1.aiff') ;
     
     // Fire up tickers needed for game ...
-    _I3 = window.setInterval('nextBg()',60000) ;
-    _I4 = window.setInterval('spawnBubble()',C_SBB_INT) ;
-	_I5 = window.setInterval('updateBubReg()',C_UBR_INT) ;
-	//_I6 = window.setInterval('updateShardReg()',C_USR_INT) ;
+    _ISWC = window.setInterval('nextBg()',60000) ;
+    _IBSP = window.setInterval('spawnBubble()',C_SBB_INT) ;
+	_IUBR = window.setInterval('updateBubReg()',C_UBR_INT) ;
+	_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
 	
 	// Play tone loop
 	//_MEDIA.play() ;
@@ -1225,7 +1303,7 @@ function endSequence1()
 	var score = Math.round((_BUB_HIT / _BUB_TOTAL) * 100) ;
 	
 	// First step, render _BUBTOTAL, _BUBHIT and score ...
-  renderDigits('total-dig',_BUB_TOTAL) ;
+  	renderDigits('total-dig',_BUB_TOTAL) ;
 	renderDigits('popped-dig',_BUB_HIT) ;
 	renderDigitsRight('score-dig',score) ;
 		
