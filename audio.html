@@ -5,7 +5,7 @@
         <title>Media Example</title>
         <script src="phonegap.js"></script>
         <script type="text/javascript" charset="utf-8">
-
+        var path ;
         // Wait for device API libraries to load
         //
         document.addEventListener("deviceready", onDeviceReady, false);
@@ -13,9 +13,12 @@
         // device APIs are available
         //
         function onDeviceReady() {
-            var path = window.location.pathname;
+            path = window.location.pathname;
             alert('App path is ' + path) ;
-            playAudio("snd/tone.mp3");
+            path = path.replace('audio.html','snd/tone-44.wav') ;
+            var url = 'file://' + path ;
+            alert('Playing audio from URL ' + url) ;
+            playAudio(url);
         }
 
         // Audio player
