@@ -761,6 +761,7 @@ function popBub(i)
 	// Trigger sound effect here in the (likely) case there's a slight delay ...
 	// Should automatically interrupt playback of tone, which will then
 	// automatically resume next time playTone() is called!
+	_SND_TONE.stop() ;
 	_SND_BURST.play() ;
 
 	// center (x,y), blast radius 'r', particle count 'p'
