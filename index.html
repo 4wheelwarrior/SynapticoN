@@ -7,7 +7,7 @@
 <script src="tween.js"></script>
 
 <script>
-var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
+var C_TAPEVENT				= 'click' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
@@ -76,6 +76,9 @@ var C_UBD_INT				= 2000 ;    // ms between calls of updateBubDyn()
 
 var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
 var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
+
+var C_TON_INT				= 3236 ;	// ms between calls to playTone()
+
 var C_SRGC_MAX				= 10 ;		// After this many calls to updateShardReg(), GC is triggered
 
 // PHI... calculated by its mathematical definition
@@ -136,8 +139,10 @@ var _SHARDREG			= [] ;
 // Triggers GC routine when it reaches C_SRGC_TRIG
 var _SRGCC				= 0 ;
 
-// 10 different variations of bursting sound
-var _SND_BURST			= [] ;
+// One for now, eventually have variations.
+// These are initialized later ...
+var _SND_BURST ;
+var _SND_TONE ;
 
 // Index of current BG colour (i.e. which one gets faded when nextBg is called)
 var _bgIdx 				= 0 ;
@@ -173,6 +178,15 @@ var _IMEDIA ;			// Interval calling _MEDIA.play() ...
 	        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
 	        src="build.txt"></iframe>
 	
+	<audio id="snd-tone" preload="auto">
+		<source src="snd/tone-env.wav">
+	</audio>
+
+	<audio id="snd-burst" preload="auto">
+		<source src="snd/bubble-burst.wav">
+	</audio>
+
+	<!--
 	<audio id="explode0"><source src="snd/explode0.ogg"></audio>
 	<audio id="explode1"><source src="snd/explode1.ogg"></audio>
 	<audio id="explode2"><source src="snd/explode2.ogg"></audio>
@@ -183,6 +197,7 @@ var _IMEDIA ;			// Interval calling _MEDIA.play() ...
 	<audio id="explode7"><source src="snd/explode7.ogg"></audio>
 	<audio id="explode8"><source src="snd/explode8.ogg"></audio>
 	<audio id="explode9"><source src="snd/explode9.ogg"></audio>
+	-->
 
 	<div id="title-lettr-title"></div>
 	<!-- display:none goes inline, otherwise JS can't read it -->
@@ -413,6 +428,12 @@ function initSgGen()
 	
 	spawnMandalaCycle() ;
 	_IMSP 	= window.setInterval('spawnMandalaCycle()',C_MSPAWN_INT) ;
+}
+
+// Called every 4s to create 2s sound, 2s gap pattern
+function playTone()
+{
+	_SND_TONE.play() ;
 }
 
 function spawnMandalaCycle()
@@ -683,21 +704,11 @@ function updateBubDyn()
 
 function updateBubReg()
 {
-	var burstX ;
-	var burstY ;
-
 	for(var i = 0; i < _BUBREG.length; i++)
 	{
 		if(_BUBREG[i].lspan <= 0)
 		{
-			burstX = _BUBREG[i].x + _BUBREG[i].r ;
-			burstY = _BUBREG[i].y + _BUBREG[i].r ;
-
-			// TODO: make these constants ...
-			burstX -= randomInt(0,5) ;
-			burstY -= randomInt(0,5) ;
-
-			popBub(i, burstX, burstY) ;
+			popBub(i) ;
 			continue ;
 		}
 		
@@ -724,10 +735,18 @@ function updateBubReg()
 }
 
 // x,y coordinates for center of explosion
-function popBub(i,x,y)
+function popBub(i)
 {
 	var cnv ;
+
 	//var x,y ;
+
+	var burstX = _BUBREG[i].x + _BUBREG[i].r ;
+	var burstY = _BUBREG[i].y + _BUBREG[i].r ;
+
+	// TODO: make these constants ...
+	burstX -= randomInt(0,5) ;
+	burstY -= randomInt(0,5) ;
 
 	// Scaling factor (px) applied just before disappearing
 	var wFac, hFac ;
@@ -739,9 +758,14 @@ function popBub(i,x,y)
 	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 	hFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 
+	// Trigger sound effect here in the (likely) case there's a slight delay ...
+	// Should automatically interrupt playback of tone, which will then
+	// automatically resume next time playTone() is called!
+	_SND_BURST.play() ;
+
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
-	explode(x, y, Math.floor(_BUBREG[i].r * 1.7), randomInt(3,8)) ;
+	explode(burstX, burstY, Math.floor(_BUBREG[i].r * 1.7), randomInt(3,5)) ;
 	
 	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
 	//_BUBREG.splice(i,1) ;
@@ -973,7 +997,7 @@ function bubClick(e)
 		if(_BUBREG[i].ser == ser) break ;
 	}
 	
-	popBub(i,e.pageX,e.pageY) ;
+	popBub(i) ;
 	
 	_BUB_HIT++ ;
 }
@@ -1146,31 +1170,8 @@ function getRoundedPoint(x1, y1, x2, y2, radius, first) {
 **************************************************/
 function titleSequence1()
 {
-	window.location.href = 'audio.html' ;
-	return 0 ;
-
 	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
-
-	// _MEDIA = new Media('snd/tone.ogg',
- //        // success callback
- //        function() {
- //            //console.log("playAudio():Audio Success");
- //            //alert('Audio Success') ;
- //        },
- //        // error callback
- //        function(err) {
- //            //console.log("playAudio():Audio Error: "+err);
- //            var output = '';
-	// 		for (property in err) {
-	// 		  output += property + ': ' + err[property]+'; ';
-	// 		}
-	// 		//alert(output);
- //            alert('Audio Error... '+output) ;
- //    	}
- //    );
-
-    //_IMEDIA = window.setInterval(function(){_MEDIA.play()},10000)
 }
 
 function titleSequence2()
@@ -1203,7 +1204,14 @@ function launchSequence1()
 	document.getElementById('title-lettr-tapstart').style.display = 'none' ;
 	document.getElementById('title-lettr-title').style.display = 'none' ;
 	
-	var elDlog = document.getElementById('dlog-start') ; 
+	// Preload SFX here so they're ready once looping starts
+	_SND_BURST 	= document.getElementById('snd-burst') ;
+	_SND_TONE	= document.getElementById('snd-tone') ;
+
+	//console.log('_SND_TONE assigned') ;
+	//console.log(_SND_TONE) ;
+
+	var elDlog 	= document.getElementById('dlog-start') ; 
 	fadeElementIn(elDlog,1000,function(){
 			window.setTimeout(launchSequence2,1000)
 		}) ;
@@ -1281,6 +1289,7 @@ function launchSequence6()
     _IBSP = window.setInterval('spawnBubble()',C_SBB_INT) ;
 	_IUBR = window.setInterval('updateBubReg()',C_UBR_INT) ;
 	_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
+	_ITON = window.setInterval('playTone()',C_TON_INT) ;
 	
 	// Play tone loop
 	//_MEDIA.play() ;
