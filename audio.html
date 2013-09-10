@@ -21,12 +21,9 @@
         function init()
         {
             EL_AUDIO = document.getElementById('the-audio') ;
-
-            alert('init...') ;
-            //alert(EL_AUDIO) ;
-
-            //playAudio() ;
-            //window.setInterval('doLoop()',3600) ;
+            document.getElementById('brb').addEventListener('touchstart',playBurst(),false) ;
+            
+            alert('init... run') ;
         }
 
         function initLoop()
@@ -68,6 +65,21 @@
         function setLoop2(){T_LOOP = 2.5 ;}
 
         </script>
+        <style>
+            #brb{
+              position: absolute ;
+              left: 300px ;
+              top: 300px ;
+              border: 5px solid black ;
+              background: red ;
+              font-size: 20px ;
+              color: white ;
+              font-family: verdana, arial, helvetica, geneva, sans-serif ;
+              width: 200px ;
+              height: 200px ;
+              text-align: center ;
+            }
+        </style>
       </head>
       <body>
         <a href="javascript:playBurst()">[ Burst ]</a>
@@ -78,7 +90,7 @@
         <a href="javascript:initLoop()">[ Manual Loop Init ]</a>
 
         <div id="msg" style="position: absolute; left: 500px; height: 30px; width: 200px"></div>
-
+        <div id="brb"><br><br>POW!</div>
         <audio id="the-audio" preload="auto">
            <source src="snd/sound-sprite-test.wav">
         </audio>
