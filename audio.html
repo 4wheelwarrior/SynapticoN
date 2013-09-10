@@ -23,7 +23,14 @@
             EL_AUDIO = document.getElementById('the-audio') ;
 
             alert('init...') ;
+            //alert(EL_AUDIO) ;
 
+            //playAudio() ;
+            //window.setInterval('doLoop()',3600) ;
+        }
+
+        function initLoop()
+        {
             window.setInterval('doLoop()',3600) ;
         }
 
@@ -41,33 +48,43 @@
         {
             EL_AUDIO.currentTime = T_LOOP ; //should jump to second loop
             if(EL_AUDIO.paused) EL_AUDIO.play() ;
-            window.setTimeout('pauseAudio()',2000) ; // Stop after 2s
+            window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
         }
 
         function playBurst()
         {
             EL_AUDIO.currentTime = 5 ;
             if(EL_AUDIO.paused) EL_AUDIO.play() ;
-            window.setTimeout('pauseAudio()',800) ;
+            window.setTimeout('pauseAudio()',1200) ;
             // Loop gets restarted on next interval
+        }
+
+        function msg(m)
+        {
+            document.getElementById('msg').innerHTML(msg) ;
         }
 
         function setLoop1(){T_LOOP = 0 ;}
         function setLoop2(){T_LOOP = 2.5 ;}
-        
+
         </script>
       </head>
       <body>
-        <a href="javascript:playBurst()">Burst</a>
-        <a href="javascript:setLoop1()">Loop1</a>
-        <a href="javascript:setLoop2()">Loop2</a>
+        <a href="javascript:playBurst()">[ Burst ]</a>
+        <a href="javascript:setLoop1()">[ Loop1 ]</a>
+        <a href="javascript:setLoop2()">[ Loop2 ]</a>
+        <a href="javascript:playAudio()">[ Manual Play ]</a>
+        <a href="javascript:doLoop()">[ Manual Loop ]</a>
+        <a href="javascript:initLoop()">[ Manual Loop Init ]</a>
+
+        <div id="msg" style="position: absolute; left: 500px; height: 30px; width: 200px"></div>
 
         <audio id="the-audio" preload="auto">
            <source src="snd/sound-sprite-test.wav">
         </audio>
 
         <script>
-            window.setTimeout('init()',200) ;
+            window.setTimeout('init()',2000) ;
         </script>
       </body>
     </html>
