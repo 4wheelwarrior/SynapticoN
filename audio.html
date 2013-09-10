@@ -5,29 +5,69 @@
         <title>Media Example</title>
         <script src="phonegap.js"></script>
         <script type="text/javascript" charset="utf-8">
-        function playAudio()
+        // We probably only need the start times ... timing of interval call takes care of the rest
+        // it's like a skipping record ...
+        //var LOOP_DICT = [[2.1,4.2],[0,2]] ;
+
+        var LOOP_DICT = [0,2.5] ;
+        var iLoop = 0 ;
+        var EL_AUDIO ;
+
+        // Burst goes directly to end of file, no need to spec end time.
+        var T_BURST = 5 ;
+
+        var T_LOOP = 0 ;
+
+        function init()
         {
-            alert('Playing Loop') ;
-            document.getElementById('my-audio').play() ;
+            EL_AUDIO = document.getElementById('the-audio') ;
+
+            alert('init...') ;
+
+            window.setInterval('doLoop()',3600) ;
         }
 
-        function playAudio2()
+        function playAudio()
         {
-            //alert('Playing Audio') ;
-            document.getElementById('my-burst').play() ;
+            EL_AUDIO.play() ;
         }
+
+        function pauseAudio()
+        {
+            EL_AUDIO.pause() ;
+        }
+
+        function doLoop()
+        {
+            EL_AUDIO.currentTime = T_LOOP ; //should jump to second loop
+            if(EL_AUDIO.paused) EL_AUDIO.play() ;
+            window.setTimeout('pauseAudio()',2000) ; // Stop after 2s
+        }
+
+        function playBurst()
+        {
+            EL_AUDIO.currentTime = 5 ;
+            if(EL_AUDIO.paused) EL_AUDIO.play() ;
+            window.setTimeout('pauseAudio()',800) ;
+            // Loop gets restarted on next interval
+        }
+
+        function setLoop1(){T_LOOP = 0 ;}
+        function setLoop2(){T_LOOP = 2.5 ;}
+        
         </script>
       </head>
       <body>
-        <a href="javascript:playAudio()">Play Audio</a>
-        <a href="javascript:playAudio2()">Play Burst</a>
+        <a href="javascript:playBurst()">Burst</a>
+        <a href="javascript:setLoop1()">Loop1</a>
+        <a href="javascript:setLoop2()">Loop2</a>
 
-        <audio id="my-audio" preload="auto">
-           <source src="snd/tone-44.wav">
+        <audio id="the-audio" preload="auto">
+           <source src="snd/sound-sprite-test.wav">
         </audio>
 
-        <audio id="my-burst" preload="auto">
-           <source src="snd/bubble-burst-r1.wav">
-        </audio>
+        <script>
+            window.setTimeout('init()',200) ;
+        </script>
       </body>
     </html>
