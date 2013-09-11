@@ -94,7 +94,11 @@ var C_DT					= 0.20 ;
 
 var C_SDIST_ORG				= 0.2 		// Shard distribution "organic" factor
 var C_BLSTRAD_ORG			= 0.4 		// Shard "blast radius" organic factor
- 
+
+// Starting times of each audio loop
+var C_LOOP_DICT = [0,3,6,9,12,15,18] ;
+var C_BURST_TIME = 21 ;
+
 /*
 Block comment here ... yakkity yak
 
@@ -112,16 +116,20 @@ var _IUBR ; // updateBubReg
 var _IUBD ; // updateBubDyn
 var _ICDN ; // coundown sequence at beginning
 var _IMSP ; // mandala spawn interval
+var _ILPP ;	// audio loop
 
 // Screen resolution of device
 var _SCRWID				= 1024 ;
 var _SCRHGT				= 768 ;
 
 // Total number of bubbles spawned
-var _BUB_TOTAL 		= 0 ;
+var _BUB_TOTAL 			= 0 ;
 
 // Number of bubbles hit
 var _BUB_HIT 			= 0 ;
+
+// Tracks consecutive hits for bonus messages
+var _HIT_STREAK			= 0 ;
 
 // Bubble registry (keeps track of all bubbles on screen)
 // Each entry is also an array [domRef,lspan]
@@ -145,6 +153,7 @@ var _SND_BURST ;
 var _SND_TONE ;
 
 // Index of current BG colour (i.e. which one gets faded when nextBg is called)
+// Other sequences are keyed off this too ... opacities, sound loops, geometry, etc
 var _bgIdx 				= 0 ;
 
 // Mandala canvases
@@ -156,8 +165,38 @@ var _RBASE ;			// Base radius of mandala set being drawn
 var _R ;				// Radius of current mandala being drawn
 var _IA	;				// Multiplier  on _DA to determine offset angle of mandala
 
-var _MEDIA ;			// PhoneGap media object ...
-var _IMEDIA ;			// Interval calling _MEDIA.play() ...
+var _AUDIO ;			// HTML5 audio object
+var _ILOOP ;			// Interval handling audio loop
+var _AUD_TIMEOUT ;		// Audio timeout counters (for re-pausing after a delay)
+
+
+function doAudioLoop()
+{
+    _AUDIO.currentTime = C_LOOP_DICT[_bgIdx] ;
+    if(_AUDIO.paused) _AUDIO.play() ;
+
+    window.clearTimeout(_AUD_TIMEOUT) ;
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+}
+
+function playAudio()
+{
+    _AUDIO.play() ;
+}
+
+function pauseAudio()
+{
+    _AUDIO.pause() ;
+}
+
+function playBurst()
+{
+    _AUDIO.currentTime = C_BURST_TIME ;
+    if(_AUDIO.paused) _AUDIO.play() ;
+    window.clearTimeout(_AUD_TIMEOUT) ;
+    
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',1200) ;
+}
 
 </script>
 </head>
@@ -178,26 +217,9 @@ var _IMEDIA ;			// Interval calling _MEDIA.play() ...
 	        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
 	        src="build.txt"></iframe>
 	
-	<audio id="snd-tone" preload="auto">
-		<source src="snd/tone-env.wav">
+	<audio id="snd-sprite" preload="auto">
+		<source src="snd/sound-sprite-proto.wav">
 	</audio>
-
-	<audio id="snd-burst" preload="auto">
-		<source src="snd/bubble-burst.wav">
-	</audio>
-
-	<!--
-	<audio id="explode0"><source src="snd/explode0.ogg"></audio>
-	<audio id="explode1"><source src="snd/explode1.ogg"></audio>
-	<audio id="explode2"><source src="snd/explode2.ogg"></audio>
-	<audio id="explode3"><source src="snd/explode3.ogg"></audio>
-	<audio id="explode4"><source src="snd/explode4.ogg"></audio>
-	<audio id="explode5"><source src="snd/explode5.ogg"></audio>
-	<audio id="explode6"><source src="snd/explode6.ogg"></audio>
-	<audio id="explode7"><source src="snd/explode7.ogg"></audio>
-	<audio id="explode8"><source src="snd/explode8.ogg"></audio>
-	<audio id="explode9"><source src="snd/explode9.ogg"></audio>
-	-->
 
 	<div id="title-lettr-title"></div>
 	<!-- display:none goes inline, otherwise JS can't read it -->
@@ -289,8 +311,8 @@ var _IMEDIA ;			// Interval calling _MEDIA.play() ...
 	<div class="bg-layer" id="bg-5" style="z-index: 20; background:url('img/bg-ind.png')"></div>
 	<div class="bg-layer" id="bg-6" style="z-index: 10; background:url('img/bg-vio.png')"></div>
 	
-	<!-- <script language="javascript">window.setTimeout('titleSequence1()',200)</script> -->
-	<script language="javascript">document.location.href = 'audio.html'</script>
+	<script language="javascript">window.setTimeout('titleSequence1()',200)</script>
+	<!-- <script language="javascript">document.location.href = 'audio.html'</script> -->
 	<!-- #SEC_CSS -->
 <style>
 html,body{
@@ -758,16 +780,14 @@ function popBub(i)
 	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 	hFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 
-	// Trigger sound effect here in the (likely) case there's a slight delay ...
-	// Should automatically interrupt playback of tone, which will then
-	// automatically resume next time playTone() is called!
-	_SND_TONE.stop() ;
-	_SND_BURST.play() ;
+	// Trigger sound effect
+	playBurst() ;
 
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
 	explode(burstX, burstY, Math.floor(_BUBREG[i].r * 1.7), randomInt(3,5)) ;
 	
+	// Does this get handled by GC?
 	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
 	//_BUBREG.splice(i,1) ;
 	
@@ -1197,22 +1217,28 @@ function ttsToggle()
 
 function launchSequence1()
 {
+	// Quit flashing 'tap to start...', it's gone
 	window.clearInterval(_ITTS) ;
 	
 	// Cancel event listener for 'tap to start'
 	document.getElementById('thebody').removeEventListener(C_TAPEVENT,launchSequence1,false) ;
 	
+	// Hide that shit
 	document.getElementById('title-lettr-tapstart').style.display = 'none' ;
 	document.getElementById('title-lettr-title').style.display = 'none' ;
 	
 	// Preload SFX here so they're ready once looping starts
-	_SND_BURST 	= document.getElementById('snd-burst') ;
-	_SND_TONE	= document.getElementById('snd-tone') ;
+	_AUDIO 	= document.getElementById('snd-sprite') ;
 
-	//console.log('_SND_TONE assigned') ;
-	//console.log(_SND_TONE) ;
+	// Start the loop here too, because it'll sound sexy ...
+	// And audio needs to be triggered by a user event
+	// Because of some bullshit data plan babysitting routine :p
+	_AUDIO.play() ;
+	_ILPP = window.setInterval('doAudioLoop()',4000) ;
 
+	// Fade in start dialog
 	var elDlog 	= document.getElementById('dlog-start') ; 
+	
 	fadeElementIn(elDlog,1000,function(){
 			window.setTimeout(launchSequence2,1000)
 		}) ;
@@ -1291,9 +1317,6 @@ function launchSequence6()
 	_IUBR = window.setInterval('updateBubReg()',C_UBR_INT) ;
 	_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
 	_ITON = window.setInterval('playTone()',C_TON_INT) ;
-	
-	// Play tone loop
-	//_MEDIA.play() ;
 
 	// Start SG generator
 	initSgGen() ;
