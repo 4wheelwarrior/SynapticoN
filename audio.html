@@ -12,6 +12,7 @@
         var LOOP_DICT = [0,2.5] ;
         var iLoop = 0 ;
         var EL_AUDIO ;
+        var T_TIMEOUT ;
 
         // Burst goes directly to end of file, no need to spec end time.
         var T_BURST = 5 ;
@@ -45,14 +46,18 @@
         {
             EL_AUDIO.currentTime = T_LOOP ; //should jump to second loop
             if(EL_AUDIO.paused) EL_AUDIO.play() ;
-            window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+
+            // Proper "etiquette" when using global variable
+            window.clearTimeout(T_TIMEOUT) ;
+            T_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
         }
 
         function playBurst()
         {
             EL_AUDIO.currentTime = 5 ;
             if(EL_AUDIO.paused) EL_AUDIO.play() ;
-            window.setTimeout('pauseAudio()',1200) ;
+            window.clearTimeout(T_TIMEOUT) ;
+            T_TIMEOUT = window.setTimeout('pauseAudio()',1200) ;
             // Loop gets restarted on next interval
         }
 
