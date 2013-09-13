@@ -7,6 +7,7 @@
 <script src="tween.js"></script>
 
 <script>
+var C_DISAUDIO				= true ;
 var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
@@ -76,6 +77,7 @@ var C_UBD_INT				= 2000 ;    // ms between calls of updateBubDyn()
 
 var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
 var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
+										// TODO: lock this to soundtrack instead
 
 var C_TON_INT				= 3236 ;	// ms between calls to playTone()
 
@@ -89,11 +91,10 @@ var C_PHI 					= ( 1 + Math.sqrt(5) ) / 2 ;
 // into two arcs, their lengths being PHI in proportion...
 var C_DA 					= 2.39982772 ;
 
-// Increment time factor in explosion particles by this much each time updateShardReg() called
-var C_DT					= 0.20 ;
-
-var C_SDIST_ORG				= 0.2 		// Shard distribution "organic" factor
-var C_BLSTRAD_ORG			= 0.4 		// Shard "blast radius" organic factor
+var C_SDIST_ORG				= 10 ; 		// Shard distribution "organic" factor (+/- this many degrees)
+var C_BLSTRAD_ORG			= 0.3 ; 	// Shard "blast radius" organic factor (percentage of nominal radius)
+var C_SVELOC				= 4 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SDA					= 30 ;		// Shard angular velocity. Random selection within +/- this value
 
 // Starting times of each audio loop
 var C_LOOP_DICT = [0,3,6,9,12,15,18] ;
@@ -172,6 +173,8 @@ var _AUD_TIMEOUT ;		// Audio timeout counters (for re-pausing after a delay)
 
 function doAudioLoop()
 {
+    if(C_DISAUDIO) return 0 ;
+
     _AUDIO.currentTime = C_LOOP_DICT[_bgIdx] ;
     if(_AUDIO.paused) _AUDIO.play() ;
 
@@ -181,16 +184,22 @@ function doAudioLoop()
 
 function playAudio()
 {
+    if(C_DISAUDIO) return 0 ;
+
     _AUDIO.play() ;
 }
 
 function pauseAudio()
 {
+    if(C_DISAUDIO) return 0 ;
+
     _AUDIO.pause() ;
 }
 
 function playBurst()
 {
+    if(C_DISAUDIO) return 0 ;
+
     _AUDIO.currentTime = C_BURST_TIME ;
     if(_AUDIO.paused) _AUDIO.play() ;
     window.clearTimeout(_AUD_TIMEOUT) ;
@@ -450,12 +459,6 @@ function initSgGen()
 	
 	spawnMandalaCycle() ;
 	_IMSP 	= window.setInterval('spawnMandalaCycle()',C_MSPAWN_INT) ;
-}
-
-// Called every 4s to create 2s sound, 2s gap pattern
-function playTone()
-{
-	_SND_TONE.play() ;
 }
 
 function spawnMandalaCycle()
@@ -785,7 +788,7 @@ function popBub(i)
 
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
-	explode(burstX, burstY, Math.floor(_BUBREG[i].r * 1.7), randomInt(3,5)) ;
+	explode(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
 	
 	// Does this get handled by GC?
 	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
@@ -831,34 +834,43 @@ function halt()
 
 // Triggers an explosion at center point (x,y)
 // With average blast radius 'r' and particle count 'p'
-
-function explode(x,y,r,p)
+// More accurately, sets up and inserts particles (shards) for an explosion ...
+// updateShardReg() handles the animation of said particles.
+function explode(x,y,rNom,p)
 {
 	var el ;					// Current particle we're working on ...
-	var da = 360 / p ;			// Angular spacing between particles (evenly distributed)
-	var w = 40 ;
+	var w = 40 ;				// Default particle width
 	
-	var aRad ;
-
-	var xFin, yFin ;			// Final x,y position of current particle
+	var dx, dy ;				// dX and dY values calculated for particle
+								// from blast radius 'r' and particle velocity
+	
+	var da ;			 		// Angular spin of particle, degrees per tick
+	var dw ;					// Rate of shrinkage of particle
 
 	//var elBurst ;				// <img> element for animated gif burst
-	
+	var r ;						// Actual radius of current particle, including organic factor
+
 	var elBody = document.getElementById('thebody') ;
-
-	// // Create burst element
-	// elBurst = document.createElement('img') ;
-	// elBurst.src 			= "img/burst.gif" ;
-	// elBurst.style.position 	= 'absolute' ;
-	// elBurst.style.zIndex 	= '3000' ;
-	// elBurst.style.left 		= x + 'px' ;
-	// elBurst.style.top 		= y + 'px' ;
-
+	console.log('== start particles ==') ;
 	// Create particles
 	for(var i = 0; i < p; i++)
 	{
-		a = (i * da) ;
+		a = Math.round(i * (360 / p)) ; // CSS angles are measured in radians, remember...
+		a = a + randomInt(-1 * C_SDIST_ORG,C_SDIST_ORG) ;
+
+		r = rNom + Math.round( rNom * randomInt(0,(100 * C_BLSTRAD_ORG)) / 100 ) ;
 		
+		// Calculate x and y components of linear velocity
+		dx = Math.round( (r / C_SVELOC) * Math.cos(degToRad(a)) ) ;
+		dy = Math.round( (r / C_SVELOC) * Math.sin(degToRad(a)) ) ;
+
+		dw = Math.round(-1 * w / C_SVELOC) ;
+
+		// Assign angular velocity
+		da = randomInt(-1 * C_SDA,C_SDA) ;
+
+		console.log( 'Radius with organic factor: ' + r + 'dx: ' + dx + ',dy: ' + dy + 'da: ' + da + 'dw: ' + dw ) ;
+
 		el = document.createElement('img') ;
 		el.src = 'img/shard.gif' ;
 
@@ -872,48 +884,17 @@ function explode(x,y,r,p)
 		el.style.width		= '40px' ;
 		
 		el.style.webkitTransform = 'rotate('+a+'deg)' ;
-	
-		
+		el.style.transform 		 = 'rotate('+a+'deg)' ;
+
 		elBody.appendChild(el) ;
 
-		// Now, set new values for x, y, opacity to animate them
-		//r = 100 ; // TODO: add variance to this value
-
-		xFin = Math.floor(x + r * Math.cos(a)) ;
-		yFin = Math.floor(y + r * Math.sin(a)) ;
-
-		el.setAttribute('rel', xFin+':'+yFin) ;
-
-		_SHARDREG.push(el) ;
+		_SHARDREG.push({'el':el,
+						'x':x,'y':y,'w':w,
+						'a':a,
+						'dx':dx,'dy':dy,'dw':dw,
+						'da':da,'lc':0}) ;
 	}
-
-	// // Append explosion gif ...
-	// elBody.appendChild(elBurst) ;
-
-	// TODO: make sure burst anim gets cleaned up ... 
-
-	// And shortly afterwards, begin animation on shards ...
-	window.setTimeout(function(){
-		for(var i = 0; i < _SHARDREG.length; i++)
-		{
-			el = _SHARDREG[i] ;
-
-			xFin = el.getAttribute('rel').split(':')[0] ;
-			yFin = el.getAttribute('rel').split(':')[1] ;
-
-			console.log('Setting final position to '+xFin+', '+yFin) ;
-			
-			el.style.left = xFin + 'px';
-			el.style.top = yFin + 'px' ;
-			el.style.opacity = '0' ;
-			el.style.width = '0' ;
-
-			// Mark for garbage collection
-			el.setAttribute('rel','CLEANUP') ;
-		}
-	},10) ;
-
-	window.setTimeout('shardRegGC()',100) ;
+	console.log(' === done particles ====') ;
 }
 
 // 'Garbage Collects' on shardReg ...
@@ -929,6 +910,53 @@ function shardRegGC()
 		// Remove DOM node and entry from _SHARDREG...
 		_SHARDREG[i].parentElement.removeChild(_SHARDREG[i])
 		_SHARDREG.splice(i,1) ;
+	}
+}
+
+function updateShardReg()
+{
+	var srEnt ;
+
+	if(!_SHARDREG.length) return ;
+
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		// Loop up from array only once ...
+		// Should get stored as reference to array element
+		srEnt = _SHARDREG[i] ;
+
+		// Apply movement to shard, update coordinates
+		srEnt.x = srEnt.x + srEnt.dx ;
+		srEnt.y = srEnt.y + srEnt.dy ;
+		srEnt.a = srEnt.a + srEnt.da ;
+		srEnt.w = srEnt.w + srEnt.dw ;
+
+		if(srEnt.w < 0) srEnt.w = 0 ;
+
+		srEnt.el.style.left = srEnt.x + 'px' ;
+		srEnt.el.style.top 	= srEnt.y + 'px' ;
+		srEnt.el.style.webkitTransform  = 'rotate('+srEnt.a+'deg)' ;
+		srEnt.el.style.transform 		= 'rotate('+srEnt.a+'deg)' ;
+		srEnt.el.style.width = srEnt.w + 'px' ;
+
+		// Increment lifecycle counter
+		_SHARDREG[i].lc = _SHARDREG[i].lc + 1 ;
+
+		// Check "lifecycle counter". Since C_SVELOC is expressed
+		// as "# of ticks until full radius", it can also be used
+		// as a yardstick to determine when shard has reached its outer limit
+		if(_SHARDREG[i].lc > C_SVELOC)
+		{
+			console.log('Shard at outer limit, removing it...') ;
+			
+			// Remove DOM node and entry from _SHARDREG...
+			_SHARDREG[i].el.parentElement.removeChild(_SHARDREG[i].el)
+			_SHARDREG.splice(i,1) ;
+
+			// Break out of for() loop and return. Next particle will be
+			// Caught next time updateShardReg() is called
+			//break ;
+		}
 	}
 }
 
@@ -1053,6 +1081,11 @@ function nextBg()
 function randomInt(min, max)
 {
     return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function degToRad(d)
+{
+	return (d / 360) * 2 * Math.PI ;
 }
 
 function tweenTicker()
@@ -1233,7 +1266,7 @@ function launchSequence1()
 	// Start the loop here too, because it'll sound sexy ...
 	// And audio needs to be triggered by a user event
 	// Because of some bullshit data plan babysitting routine :p
-	_AUDIO.play() ;
+	playAudio() ;
 	_ILPP = window.setInterval('doAudioLoop()',4000) ;
 
 	// Fade in start dialog
@@ -1307,16 +1340,12 @@ function launchSequence5()
 // Final step ... draw the canvases, set the tickers... and pull the curtain
 function launchSequence6()
 {
-    // Preload sound effects
-    //for(var i = 0; i <=9; i++) _SND_BURST[i] = new Audio('snd/explode'+i+'.aiff') ;
-    // _SND_BURST[0] = new Audio('snd/explode1.aiff') ;
-    
     // Fire up tickers needed for game ...
     _ISWC = window.setInterval('nextBg()',60000) ;
     _IBSP = window.setInterval('spawnBubble()',C_SBB_INT) ;
 	_IUBR = window.setInterval('updateBubReg()',C_UBR_INT) ;
-	_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
-	_ITON = window.setInterval('playTone()',C_TON_INT) ;
+	//_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
+	_IUSR = window.setInterval('updateShardReg()',C_USR_INT) ;
 
 	// Start SG generator
 	initSgGen() ;
