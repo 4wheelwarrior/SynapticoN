@@ -72,6 +72,9 @@ var C_BUB_GEOM				= [ [99], 	// Which polygons for each colour.Starting @ RED
 
 var C_BUB_CRAT				= 0.16; 	// Corner radius of polygon bubbles, ratio of radius
 
+var C_HIT_CONSEC			= 3 ;		// # of consecutive hits/misses required to trigger life loss or gain
+
+
 var C_UBR_INT				= 500 ;		// ms between calls of updateBubReg()
 var C_UBD_INT				= 2000 ;    // ms between calls of updateBubDyn()
 
@@ -93,11 +96,13 @@ var C_DA 					= 2.39982772 ;
 
 var C_SDIST_ORG				= 10 ; 		// Shard distribution "organic" factor (+/- this many degrees)
 var C_BLSTRAD_ORG			= 0.3 ; 	// Shard "blast radius" organic factor (percentage of nominal radius)
-var C_SVELOC				= 8 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SVELOC				= 3 ;		// Shard velocity expressed as # of ticks to full radius
 var C_SDA					= 30 ;		// Shard angular velocity. Random selection within +/- this value
 
 // Starting times of each audio loop
 var C_LOOP_DICT = [0,3,6,9,12,15,18] ;
+
+// Time index of burst sound in sprite
 var C_BURST_TIME = 21 ;
 
 /*
@@ -106,9 +111,7 @@ Block comment here ... yakkity yak
 */
 
 // Globals for interval tickers (needed so we can clear them later)
-var _I1, _I2, _I3, _I4, _I5, _I6 ;
 
-// Renamed interval tickers ...
 var _ITWN ; // tween ticker
 var _ITTS ; // tap to start flasher
 var _IBSP ; // bubble spawner
@@ -128,6 +131,19 @@ var _BUB_TOTAL 			= 0 ;
 
 // Number of bubbles hit
 var _BUB_HIT 			= 0 ;
+
+// Number of consecutive misses/hits
+// Simple version ... Miss 5, you're done!
+// Hit 5 in a row, gain a life ...
+var _BUB_CMISS			= 0 ;
+var _BUB_CHIT			= 0 ;
+
+// Life Force. If it reaches zero, game over
+// Every time 5 consecutive bubbles are missed, lose 1
+// Every time 5 consecutive bubbles are hit, gain 1
+// Brain is constantly tracking this number ... we don't display it
+// Initially, focused on figuring out what it is!
+var _LF					= 3 ;
 
 // Tracks consecutive hits for bonus messages
 var _HIT_STREAK			= 0 ;
@@ -225,7 +241,7 @@ function playBurst()
 	<iframe id="build-number"
 	        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
 	        src="build.txt"></iframe>
-	
+	<div id="lf">H:xx | M:xx | L: 3</div>
 	<audio id="snd-sprite" preload="auto">
 		<source src="snd/sound-sprite-proto.wav">
 	</audio>
@@ -328,6 +344,21 @@ html,body{
     background: black ;
     width: 1024px ;
     height: 768px ;
+}
+
+#lf{
+	font-size: 15px ;
+	font-family: tahoma, verdana, helvetica, arial, sans-serif ;
+	color: black ;
+	background: white ;
+	border: 3px solid black ;
+	text-align: center ;
+	position: absolute ;
+	left: 820px ;
+	top: 5px ;
+	width: 150px ;
+	height: 30px ;
+	z-index: 50000 ;
 }
 
 #title-tapstart-region{
@@ -727,6 +758,60 @@ function updateBubDyn()
 	}
 }
 
+function doHit()
+{
+	_BUB_CHIT++ ;
+	_BUB_CMISS = 0 ;
+
+	updateLFDisplay() ;
+
+	if(_BUB_CHIT == C_HIT_CONSEC)
+	{
+		// Gain a life! Reset consec. counter
+		_LF++ ;
+		_BUB_CHIT = 0 ;
+		updateLFDisplay() ;
+		
+		alert('+1 life!') ;
+		updateLFDisplay() ;
+	}
+}
+
+function doMiss()
+{
+	_BUB_CMISS++ ;
+	_BUB_CHIT = 0 ;
+
+	updateLFDisplay() ;
+	
+	// 5 consecutive misses, you're done!
+	if(_BUB_CMISS == C_HIT_CONSEC)
+	{
+		_LF-- ;
+
+		updateLFDisplay() ;
+
+		if(_LF == 0) gameOver() ;
+
+		_BUB_CMISS = 0 ;
+
+		updateLFDisplay() ;
+	}	
+}
+
+function updateLFDisplay()
+{
+	var str = 'H: ' + _BUB_CHIT + ' | M: ' + _BUB_CMISS + ' | L: ' + _LF ;
+	document.getElementById('lf').innerHTML = str ;
+}
+
+function gameOver()
+{
+	alert('game over!') ;
+	window.location.href = "index.html" ;
+}
+
+
 function updateBubReg()
 {
 	for(var i = 0; i < _BUBREG.length; i++)
@@ -734,6 +819,7 @@ function updateBubReg()
 		if(_BUBREG[i].lspan <= 0)
 		{
 			popBub(i) ;
+			doMiss() ;
 			continue ;
 		}
 		
@@ -814,13 +900,8 @@ function popBub(i)
 // Ends the game
 function halt()
 {
-  //window.clearInterval('tweenTicker()') ;
-  
   // TODO: wait until last bubble pops (or is popped)
   // before displaying final results ...
-  window.clearInterval(_I3) ;
-  window.clearInterval(_I4) ;
-  window.clearInterval(_I5) ;
   
   var score = Math.round((_BUB_HIT / _BUB_TOTAL) * 100) ;
   var str = 'Finished!'+"\n"
@@ -1048,7 +1129,7 @@ function bubClick(e)
 	
 	popBub(i) ;
 	
-	_BUB_HIT++ ;
+	doHit() ;
 }
 
 function nextBg()
