@@ -27,7 +27,7 @@ var C_MSCALE_MAX 			= 0.15 ;	// Scale mandala UP by this factor before fading ou
 var C_MOPAC_MIN				= 0.0 ;		// Min/Max opacities of mandalas as they grow
 //var C_MOPAC_MAX				= 0.15 ;
 
-var C_MOPAC_MAX 			= [0.10,0.15,0.25,0.10,0.05,0.10,0.20] ;
+var C_MOPAC_MAX 			= [0.15,0.15,0.25,0.15,0.10,0.10,0.20] ;
 
 var C_MSCALE_DUR			= 12000 ;	// Duration of life and death cycle (total cycle is 2x)
 var C_MSPAWN_INT  			= 6000 ;	// Interval on which new mandalas are spawned
@@ -72,7 +72,7 @@ var C_BUB_GEOM				= [ [99], 	// Which polygons for each colour.Starting @ RED
 
 var C_BUB_CRAT				= 0.16; 	// Corner radius of polygon bubbles, ratio of radius
 
-var C_HIT_CONSEC			= 3 ;		// # of consecutive hits/misses required to trigger life loss or gain
+var C_HIT_CONSEC			= 5 ;		// # of consecutive hits/misses required to trigger life loss or gain
 
 
 var C_UBR_INT				= 500 ;		// ms between calls of updateBubReg()
@@ -84,8 +84,6 @@ var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
 
 var C_TON_INT				= 3236 ;	// ms between calls to playTone()
 
-var C_SRGC_MAX				= 10 ;		// After this many calls to updateShardReg(), GC is triggered
-
 // PHI... calculated by its mathematical definition
 var C_PHI 					= ( 1 + Math.sqrt(5) ) / 2 ;
 
@@ -96,7 +94,7 @@ var C_DA 					= 2.39982772 ;
 
 var C_SDIST_ORG				= 10 ; 		// Shard distribution "organic" factor (+/- this many degrees)
 var C_BLSTRAD_ORG			= 0.3 ; 	// Shard "blast radius" organic factor (percentage of nominal radius)
-var C_SVELOC				= 3 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SVELOC				= 5 ;		// Shard velocity expressed as # of ticks to full radius
 var C_SDA					= 30 ;		// Shard angular velocity. Random selection within +/- this value
 
 // Starting times of each audio loop
@@ -158,11 +156,6 @@ var _BUBREG				= [] ;
 
 // Tracks explosive shards
 var _SHARDREG			= [] ;
-
-// Shard Reg garbage collection count
-// Incremented each time updateShardReg() is called
-// Triggers GC routine when it reaches C_SRGC_TRIG
-var _SRGCC				= 0 ;
 
 // One for now, eventually have variations.
 // These are initialized later ...
@@ -467,14 +460,14 @@ html,body{
 }
 
 .shard{
-	-webkit-transition-property: left, top, opacity, width ;
-	-webkit-transition-duration: 500ms ;
+	/*-webkit-transition-property: left, top, opacity, width ; */
+	/* -webkit-transition-duration: 500ms ; */
 	/* ease | linear | ease-in | ease-out | ease-in-out */
-	-webkit-transition-timing-function: ease-out ;
+	/* -webkit-transition-timing-function: ease-out ; */
 	display: block ;
 	position: absolute ;
 	z-index: 3000 ;
-	opacity: 0.7 ;
+	opacity: 0.6 ;
 }
 </style>
 <!-- #SEC_JSSG -->
@@ -978,22 +971,6 @@ function explode(x,y,rNom,p)
 	console.log(' === done particles ====') ;
 }
 
-// 'Garbage Collects' on shardReg ...
-// I.E. removes all particles which have run
-function shardRegGC()
-{
-	for(var i = 0; i < _SHARDREG.length; i++)
-	{
-		//if(_SHARDREG[i].rCur < 1) continue ;
-		if(_SHARDREG[i].getAttribute('rel') != 'CLEANUP') continue ;
-
-		console.log('GC: Removing shard at index '+i) ;
-		// Remove DOM node and entry from _SHARDREG...
-		_SHARDREG[i].parentElement.removeChild(_SHARDREG[i])
-		_SHARDREG.splice(i,1) ;
-	}
-}
-
 function updateShardReg()
 {
 	var srEnt ;
@@ -1033,10 +1010,6 @@ function updateShardReg()
 			// Remove DOM node and entry from _SHARDREG...
 			_SHARDREG[i].el.parentElement.removeChild(_SHARDREG[i].el)
 			_SHARDREG.splice(i,1) ;
-
-			// Break out of for() loop and return. Next particle will be
-			// Caught next time updateShardReg() is called
-			//break ;
 		}
 	}
 }
