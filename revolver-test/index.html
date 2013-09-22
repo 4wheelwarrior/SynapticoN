@@ -1,0 +1,233 @@
+<html>
+<head>
+<style>
+	#revolver-bbl
+	{
+		position: absolute ;
+		width: 120px ;
+		height: 120px ;
+		background: url('barrels.png') ;
+		left: 100px ;
+		top: 100px ;
+
+		-webkit-transition-timing-function: ease-in-out ;
+		-webkit-transition: -webkit-transform 1s;
+	}
+
+	.control-button
+	{
+		position: absolute ;
+		width: 150px ;
+		height: 60px ;
+		border: 2px solid red ;
+		background: black ;
+		color: red ;
+	}
+	#add-bullet-rear
+	{
+		left: 400px ;
+		top: 30px ;
+	}
+
+	#add-bullet-front
+	{
+		left: 400px ;
+		top: 100px ;
+	}
+
+	#rotate-right
+	{
+		left: 400px ;
+		top: 170px ;
+	}
+
+	#rotate-left
+	{
+		left: 400px ;
+		top: 240px ;
+	}
+
+	#rotate-zero
+	{
+		left: 560px ;
+		top: 30px ;
+	}
+
+	#empty-bullets
+	{
+		left: 560px ;
+		top: 100px ;
+	}
+
+	#trigger-hit
+	{
+		left: 560px ;
+		top: 170px ;
+	}
+
+	#trigger-miss
+	{
+		left: 560px ;
+		top: 240px ;
+	}
+</style>
+<script>
+	var _WBBL = 120 ; // center point will be _WBBL/2, _WBBL/2
+	var _RBBL = 34 ; // Radius from center of barrel to center of bullet holes
+	var _WBUL = 34 ; // Interesting coincidence with above ... !
+	var _AOFF = Math.PI / 2 ; // initial offset angle, 90* due north
+
+	var _ABBL = 0 ;
+	var _DABBL = 72 ; // 72deg is increment
+
+	var _ICLR ; // Interval to clear bullets
+
+	var _HITS ;
+	var _MISS ;
+
+	function addBullet(isFront)
+	{
+		var src ;
+		var ang ;
+
+		if(!isFront) src = 'bullet-rear.png' ;
+		else src = 'bullet-front.png' ;
+
+		var el = document.createElement('img') ;
+		var x = Math.round(_WBBL/2) ;
+		var y = x ;
+
+		ang = _AOFF + degToRad(_ABBL) ; // derive angle from current barrel angle ...
+
+		x = Math.round(x + _RBBL * Math.cos(ang) - _WBUL / 2 ) ;
+		y = Math.round(y - _RBBL * Math.sin(ang) - _WBUL / 2 ) ;
+
+		el.style.position = 'absolute' ;
+		el.src = src ;
+		el.style.left = x + 'px' ;
+		el.style.top = y + 'px' ;
+		el.style.zIndex = 50 ;
+
+		// Randomize rotation (organic detail for bullet rears... lettering, etc)
+		el.style.webkitTransform = 'rotate('+randomInt(0,360)+'deg)' ;
+
+		document.getElementById('revolver-bbl').appendChild(el) ;
+	}
+
+	function triggerHit()
+	{
+		if(_MISS > 0)
+		{
+			emptyBullets() ; // will reset hit/miss values
+
+			// Timeout needs to allow emptyBullets to finish ...
+			window.setTimeout(function(){
+				rotateRight() ;
+				window.setTimeout(function(){addBullet()},800) ;
+				_HITS++ ;
+			},1100) ;
+
+			return ;
+		}
+
+		// Otherwise, rotateLeft() can happen immediately ...
+		rotateRight() ;
+		window.setTimeout(function(){ addBullet() },800) ;
+		
+		_HITS++ ;
+	}
+
+	function triggerMiss()
+	{
+		if(_HITS > 0)
+		{
+			emptyBullets() ; // will reset hit/miss values
+
+			// Timeout needs to allow emptyBullets to finish ...
+			window.setTimeout(function(){
+				rotateLeft() ;
+				window.setTimeout(function(){ addBullet(1) },800) ;
+				_MISS ++ ;
+			},1100) ;
+
+			return ;
+		}
+
+		// Otherwise, rotateLeft() can happen immediately ...
+		rotateLeft() ;
+		window.setTimeout(function(){ addBullet(1) },800) ;
+
+		_MISS++ ;
+	}
+
+	function rotateRight()
+	{
+		_ABBL += _DABBL ;
+		console.log('Rotating right to '+_ABBL) ;
+		document.getElementById('revolver-bbl').style.webkitTransform = 'rotate('+_ABBL+'deg)' ;
+	}
+
+	function rotateLeft()
+	{
+		_ABBL -= _DABBL ;
+		document.getElementById('revolver-bbl').style.webkitTransform = 'rotate('+_ABBL+'deg)' ;
+	}
+
+	function rotateZero()
+	{
+		_ABBL = 0 ;
+		document.getElementById('revolver-bbl').style.webkitTransform = 'rotate('+_ABBL+'deg)' ;
+	}
+
+	function degToRad(d)
+	{
+		return (d / 360) * 2 * Math.PI ;
+	}
+
+	function randomInt(min, max)
+	{
+	    return Math.floor(Math.random() * (max - min + 1)) + min;
+	}
+
+	// Called when 'spin to zero' is initiated... sequentially removes bullet elements
+	function emptyBullets()
+	{
+		console.log('Emptying ...') ;
+		_HITS = 0 ;
+		_MISS = 0 ;
+		_ICLR = window.setInterval('tClearBullet()',150) ;
+		rotateZero() ;
+	}
+
+	function tClearBullet()
+	{
+		console.log('Clearbullet called ...') ;
+		// Get a list of remaining bullet elements
+		var aChildren = document.getElementById('revolver-bbl').children
+		var el = aChildren[aChildren.length - 1] ;
+		
+		if(!el)
+		{
+			console.log('No more children ... exiting') ;
+			window.clearInterval(_ICLR) ;
+			return ;
+		}
+
+		el.parentNode.removeChild(el) ;
+	}
+</script>
+</head>
+<body>
+
+<div id="revolver-bbl"></div>
+
+<a class="control-button" id="add-bullet-rear" href="javascript:addBullet()">ADD REAR</a>
+<a class="control-button" id="add-bullet-front" href="javascript:addBullet(1)">ADD FRONT</a>
+<a class="control-button" id="rotate-right" href="javascript:rotateRight()">ROTATE RIGHT</a>
+<a class="control-button" id="rotate-left" href="javascript:rotateLeft()">ROTATE LEFT</a>
+<a class="control-button" id="rotate-zero" href="javascript:rotateZero()">ROTATE ZERO</a>
+<a class="control-button" id="empty-bullets" href="javascript:emptyBullets()">EMPTY</a>
+<a class="control-button" id="trigger-hit" href="javascript:triggerHit()">TRIG HIT</a>
+<a class="control-button" id="trigger-miss" href="javascript:triggerMiss()">TRIG MISS</a>
+</body>
+</html>
