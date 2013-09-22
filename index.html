@@ -7,6 +7,11 @@
 <script src="tween.js"></script>
 
 <script>
+/*
+A few random notes ...
+
+- Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
+*/
 var C_DISAUDIO				= false ;
 var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
@@ -98,10 +103,13 @@ var C_SVELOC				= 5 ;		// Shard velocity expressed as # of ticks to full radius
 var C_SDA					= 30 ;		// Shard angular velocity. Random selection within +/- this value
 
 // Starting times of each audio loop
-var C_LOOP_DICT = [0,3,6,9,12,15,18] ;
+// They're all the same length
+var C_LOOP_DICT 	= [0,3,6,9,12,15,18] ;
 
-// Time index of burst sound in sprite
-var C_BURST_TIME = 21 ;
+// Start times and durations of all other sound effects
+// Used by playSfx() function to cue and then pause after a delay
+// In order, these are: 0:burst, 1:gun cock, 2:gun fire, 3:life up, 4:life down, 5:game over
+var C_SFX_DICT		= [[21,1200],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] ;
 
 /*
 Block comment here ... yakkity yak
@@ -205,15 +213,152 @@ function pauseAudio()
     _AUDIO.pause() ;
 }
 
-function playBurst()
+function playSfx(i)
 {
-    if(C_DISAUDIO) return 0 ;
+	if(C_DISAUDIO) return 0 ;
+	
+	var startTime = C_SFX_DICT[i][0] ;
+	var pauseTime = C_SFX_DICT[i][1] ;
 
-    _AUDIO.currentTime = C_BURST_TIME ;
-    if(_AUDIO.paused) _AUDIO.play() ;
-    window.clearTimeout(_AUD_TIMEOUT) ;
+	// Cue to start time, play if not already playing
+	_AUDIO.currentTime = startTime ;
+	if(_AUDIO.paused) _AUDIO.play() ;
     
-    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',1200) ;
+    // Clear any pending pause timeouts
+    window.clearTimeout(_AUD_TIMEOUT) ;
+
+    // Set a new timeout to pause after this sound is done
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',pauseTime) ;
+}
+
+// TODO: move these into proper position. Same with audio shit above.
+
+var _WBBL = 120 ; // center point will be _WBBL/2, _WBBL/2
+var _RBBL = 34 ; // Radius from center of barrel to center of bullet holes
+var _WBUL = 34 ; // Interesting coincidence with above ... !
+var _AOFF = Math.PI / 2 ; // initial offset angle, 90* due north
+
+var _ABBL = 0 ;
+var _DABBL = 72 ; // 72deg is increment
+
+var _ICLR ; // Interval to clear bullets
+
+function addBullet(isFront)
+{
+	var src ;
+	var ang ;
+
+	if(!isFront) src = 'img/bullet-rear.png' ;
+	else src = 'img/bullet-front.png' ;
+
+	var el = document.createElement('img') ;
+	var x = Math.round(_WBBL/2) ;
+	var y = x ;
+
+	ang = _AOFF + degToRad(_ABBL) ; // derive angle from current barrel angle ...
+
+	x = Math.round(x + _RBBL * Math.cos(ang) - _WBUL / 2 ) ;
+	y = Math.round(y - _RBBL * Math.sin(ang) - _WBUL / 2 ) ;
+
+	el.style.position = 'absolute' ;
+	el.src = src ;
+	el.style.left = x + 'px' ;
+	el.style.top = y + 'px' ;
+	el.style.zIndex = 15500 ;
+
+	// Randomize rotation (organic detail for bullet rears... lettering, etc)
+	el.style.webkitTransform = 'rotate('+randomInt(0,360)+'deg)' ;
+
+	document.getElementById('revolver-bbl').appendChild(el) ;
+}
+
+function triggerHit()
+{
+	if(_BUB_CMISS > 0)
+	{
+		emptyBullets() ; // will reset hit/miss values
+
+		// Timeout needs to allow emptyBullets to finish ...
+		window.setTimeout(function(){
+			rotateRight() ;
+			window.setTimeout(function(){addBullet()},800) ;
+			_BUB_CHIT++ ;
+		},1100) ;
+
+		return ;
+	}
+
+	// Otherwise, rotateLeft() can happen immediately ...
+	rotateRight() ;
+	window.setTimeout(function(){ addBullet() },800) ;
+	
+	_BUB_CHIT++ ;
+}
+
+function triggerMiss()
+{
+	if(_BUB_CHIT > 0)
+	{
+		emptyBullets() ; // will reset hit/miss values
+
+		// Timeout needs to allow emptyBullets to finish ...
+		window.setTimeout(function(){
+			rotateLeft() ;
+			window.setTimeout(function(){ addBullet(1) },800) ;
+			_BUB_CMISS ++ ;
+		},1100) ;
+
+		return ;
+	}
+
+	// Otherwise, rotateLeft() can happen immediately ...
+	rotateLeft() ;
+	window.setTimeout(function(){ addBullet(1) },800) ;
+
+	_BUB_CMISS++ ;
+}
+
+function rotateRight()
+{
+	_ABBL += _DABBL ;
+	document.getElementById('revolver-bbl').style.webkitTransform = 'rotate('+_ABBL+'deg)' ;
+}
+
+function rotateLeft()
+{
+	_ABBL -= _DABBL ;
+	document.getElementById('revolver-bbl').style.webkitTransform = 'rotate('+_ABBL+'deg)' ;
+}
+
+function rotateZero()
+{
+	_ABBL = 0 ;
+	document.getElementById('revolver-bbl').style.webkitTransform = 'rotate('+_ABBL+'deg)' ;
+}
+
+// Called when 'spin to zero' is initiated... sequentially removes bullet elements
+function emptyBullets()
+{
+	console.log('Emptying ...') ;
+	_BUB_CHIT = 0 ;
+	_BUB_CMISS = 0 ;
+	_ICLR = window.setInterval('tClearBullet()',150) ;
+	rotateZero() ;
+}
+
+function tClearBullet()
+{
+	// Get a list of remaining bullet elements
+	var aChildren = document.getElementById('revolver-bbl').children
+	var el = aChildren[aChildren.length - 1] ;
+	
+	if(!el)
+	{
+		window.clearInterval(_ICLR) ;
+		return ;
+	}
+
+	el.parentNode.removeChild(el) ;
 }
 
 </script>
@@ -235,6 +380,9 @@ function playBurst()
 	        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
 	        src="build.txt"></iframe>
 	<div id="lf">H:xx | M:xx | L: 3</div>
+
+	<div id="revolver-bbl"></div>
+
 	<audio id="snd-sprite" preload="auto">
 		<source src="snd/sound-sprite-proto.wav">
 	</audio>
@@ -351,7 +499,22 @@ html,body{
 	top: 5px ;
 	width: 150px ;
 	height: 30px ;
-	z-index: 50000 ;
+	z-index: 20000 ;
+}
+
+#revolver-bbl
+{
+	position: absolute ;
+	width: 120px ;
+	height: 120px ;
+	background: url('img/barrels.png') ;
+	left: 452px ;
+	top: 15px ;
+
+	z-index: 20000 ;
+
+	-webkit-transition-timing-function: ease-in-out ;
+	-webkit-transition: -webkit-transform 1s;
 }
 
 #title-tapstart-region{
@@ -812,7 +975,8 @@ function updateBubReg()
 		if(_BUBREG[i].lspan <= 0)
 		{
 			popBub(i) ;
-			doMiss() ;
+			//doMiss() ;
+			triggerMiss() ;
 			continue ;
 		}
 		
@@ -862,8 +1026,8 @@ function popBub(i)
 	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 	hFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 
-	// Trigger sound effect
-	playBurst() ;
+	// Trigger burst sound effect
+	playSfx(0) ;
 
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
@@ -1102,7 +1266,8 @@ function bubClick(e)
 	
 	popBub(i) ;
 	
-	doHit() ;
+	//doHit() ;
+	triggerHit() ;
 }
 
 function nextBg()
@@ -1278,8 +1443,8 @@ function getRoundedPoint(x1, y1, x2, y2, radius, first) {
 **************************************************/
 function titleSequence1()
 {
-	window.location.href = 'revolver-test/index.html' ;
-	return ;
+	//window.location.href = 'revolver-test/index.html' ;
+	//return ;
 	
 	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
