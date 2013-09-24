@@ -32,7 +32,7 @@ var C_MSCALE_MAX 			= 0.15 ;	// Scale mandala UP by this factor before fading ou
 var C_MOPAC_MIN				= 0.0 ;		// Min/Max opacities of mandalas as they grow
 //var C_MOPAC_MAX				= 0.15 ;
 
-var C_MOPAC_MAX 			= [0.15,0.15,0.25,0.15,0.10,0.10,0.20] ;
+var C_MOPAC_MAX 			= [0.20,0.15,0.35,0.20,0.10,0.10,0.20] ;
 
 var C_MSCALE_DUR			= 12000 ;	// Duration of life and death cycle (total cycle is 2x)
 var C_MSPAWN_INT  			= 6000 ;	// Interval on which new mandalas are spawned
@@ -58,7 +58,7 @@ var C_BUBDWS_MAX			= 120 ;		// Between 0.8 and 1.2
 var C_BUBDHS_MIN			= -1 ;
 var C_BUBDHS_MAX			= 1 ;
 
-var C_BUB_OPAC 				= [0.20,0.20,0.20,0.15,0.10,0.10,0.20] ;
+var C_BUB_OPAC 				= [0.25,0.20,0.25,0.20,0.10,0.10,0.20] ;
 
 var C_BUB_FADEIN			= 3000 ;	// ms for a bubble to fade into existence
 var C_BUB_EDGEPAD			= 10 ;		// Padding for bubble region (from screen edges)
@@ -1108,7 +1108,6 @@ function popBub(i)
 		playSfx(3) ;
 		emptyBullets() ; // this will likely fuck up timing, but its temporary
 		_HIT_ACC == 5 ;
-		alert('Bonus life!') ;
 	}
 	
 	var cnv ;
