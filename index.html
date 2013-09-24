@@ -12,8 +12,8 @@ A few random notes ...
 
 - Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
 */
-var C_DISAUDIO				= false ;
-var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
+var C_DISAUDIO				= true ;
+var C_TAPEVENT				= 'click' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
@@ -676,9 +676,11 @@ function spawnMandalaCycle()
 	a 	= _IA * C_DA ;
 	
 	// Reset canvas opacity and size before redrawing
+	cnv.style.display = 'none' ;
 	cnv.style.opacity = 0 ;
 	cnv.style.width 	= C_MWIDTH + 'px' ;
 	cnv.style.height	= C_MHEIGHT + 'px' ;
+	cnv.style.display = 'block' ;
 	
 	// Remember, "native size" of canvas is HALF of nominal width/height
 	ctx.clearRect(0, 0, C_MWIDTH / 2, C_MHEIGHT / 2) ;
@@ -795,26 +797,28 @@ function drawCell(ctx, cx, cy, r){
 // by a factor of 's' where 0 < s < 1.0
 function scaleFromCenter(M,s)
 {
-		var w, h, cX, cY, cXNom, cYNom ;
+	var w, h, cX, cY, cXNom, cYNom ;
 		
-		w = Math.round(C_MWIDTH 	* (1 + s)) ;
-		h = Math.round(C_MHEIGHT 	* (1 + s)) ;
+	w = Math.round(C_MWIDTH 	* (1 + s)) ;
+	h = Math.round(C_MHEIGHT 	* (1 + s)) ;
 		
     // Compute original (non-scaled) center point, AKA 'nominal' center point
     cXNom = C_MWIDTH / 2 ;
     cYNom = C_MHEIGHT / 2 ;
     
     // Compute current center point (with scaling factor applied)
-    cX		= w / 2 ;
-    cY		= h / 2 ;
+    cX	= w / 2 ;
+    cY	= h / 2 ;
     
     // Adjust width and height
+    M.style.display = 'none' ;
     M.style.width   = w + 'px' ;
     M.style.height  = h + 'px' ;
     
     // NOW ... Adjust positioning to keep the mandala centered
-    M.style.left			= -1 * Math.round(cX - cXNom) + 'px' ;
-    M.style.top			= -1 * Math.round(cY - cYNom) + 'px' ;
+    M.style.left	= -1 * Math.round(cX - cXNom) + 'px' ;
+    M.style.top		= -1 * Math.round(cY - cYNom) + 'px' ;
+    M.style.display = 'block' ; // will this flicker?
 }
 
 // #SEC_JSMAIN
@@ -1155,11 +1159,13 @@ function updateShardReg()
 
 		if(srEnt.w < 0) srEnt.w = 0 ;
 
+		srEnt.el.style.display = 'none' ;
 		srEnt.el.style.left = srEnt.x + 'px' ;
 		srEnt.el.style.top 	= srEnt.y + 'px' ;
 		srEnt.el.style.webkitTransform  = 'rotate('+srEnt.a+'deg)' ;
-		srEnt.el.style.transform 		= 'rotate('+srEnt.a+'deg)' ;
+		//srEnt.el.style.transform 		= 'rotate('+srEnt.a+'deg)' ;
 		srEnt.el.style.width = srEnt.w + 'px' ;
+		srEnt.el.style.display = 'block' ;
 
 		// Increment lifecycle counter
 		_SHARDREG[i].lc = _SHARDREG[i].lc + 1 ;
