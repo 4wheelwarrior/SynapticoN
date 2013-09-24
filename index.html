@@ -12,7 +12,7 @@ A few random notes ...
 
 - Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
 */
-var C_DISAUDIO				= true ;
+var C_DISAUDIO				= false ;
 var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
@@ -87,6 +87,7 @@ var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
 var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
 										// TODO: lock this to soundtrack instead
 
+var C_HMQ_INT				= 100 ;		// ms between calls to processHMQ()
 var C_TON_INT				= 3236 ;	// ms between calls to playTone()
 
 // PHI... calculated by its mathematical definition
@@ -127,6 +128,7 @@ var _IUBD ; // updateBubDyn
 var _ICDN ; // coundown sequence at beginning
 var _IMSP ; // mandala spawn interval
 var _ILPP ;	// audio loop
+var _IHMQ ; // process hit/miss queue
 
 // Screen resolution of device
 var _SCRWID				= 1024 ;
@@ -135,14 +137,18 @@ var _SCRHGT				= 768 ;
 // Total number of bubbles spawned
 var _BUB_TOTAL 			= 0 ;
 
-// Number of bubbles hit
+// Total number of bubbles hit
 var _BUB_HIT 			= 0 ;
 
-// Number of consecutive misses/hits
-// Simple version ... Miss 5, you're done!
-// Hit 5 in a row, gain a life ...
-var _BUB_CMISS			= 0 ;
-var _BUB_CHIT			= 0 ;
+// Hit/Miss queue. FIFO, new elements PUSHED on
+// Stores 2 for hit, 1 for miss
+var _HMQ				= [] ;
+var _HMQ_TIMER			= 0 ;
+
+// "Hit Accumulator"
+// Counts up every time a hit is accumulated, down for misses
+// When it reaches 0, death. 10, life. 'Center' is 5.
+var _HIT_ACC			= 5 ;
 
 // Life Force. If it reaches zero, game over
 // Every time 5 consecutive bubbles are missed, lose 1
@@ -150,9 +156,6 @@ var _BUB_CHIT			= 0 ;
 // Brain is constantly tracking this number ... we don't display it
 // Initially, focused on figuring out what it is!
 var _LF					= 3 ;
-
-// Tracks consecutive hits for bonus messages
-var _HIT_STREAK			= 0 ;
 
 // Bubble registry (keeps track of all bubbles on screen)
 // Each entry is also an array [domRef,lspan]
@@ -236,19 +239,103 @@ function playSfx(i)
 var _WBBL = 120 ; // center point will be _WBBL/2, _WBBL/2
 var _RBBL = 34 ; // Radius from center of barrel to center of bullet holes
 var _WBUL = 34 ; // Interesting coincidence with above ... !
-var _AOFF = Math.PI / 2 ; // initial offset angle, 90* due north
+var _AOFF = Math.PI / 2 - ( 2 * Math.PI / 5 ) ; // initial offset angle, 90* due north minus 360/5 = 72deg from top
 
 var _ABBL = 0 ;
 var _DABBL = 72 ; // 72deg is increment
 
 var _ICLR ; // Interval to clear bullets
 
-function addBullet(isFront)
+// Called every 100ms to ensure quick response
+// Once bubble is popped
+function processHMQ()
+{
+	//console.log('Hit accumulator '+_HIT_ACC) ;
+	document.getElementById('lf').innerHTML = 'HIT ACC: '+_HIT_ACC ;
+	if(!_HMQ.length) return ;
+
+	_HMQ_TIMER-- ;
+
+	// Wait until current HMQ entry is processed
+	// i.e. done animating, until proceeding
+	if(_HMQ_TIMER > 0) return false ;
+
+	// If timer has run down, process the next entry ...
+	var ent = _HMQ.shift() ;
+
+	if(ent == 'M')
+	{
+		// If hits have been accumulated, 
+		// clear them and re-center hit accumulator
+		if(_HIT_ACC > 5)
+		{
+			_HIT_ACC = 4 ; // (5 is center, minus the miss we're processing)
+
+			emptyBullets() ;
+
+			// Allow time for emptyBullets() to finish running
+			window.setTimeout(function(){
+				addBullet(0) ;
+				window.setTimeout(function(){ playSfx(1) ; rotateRight() },200) ;
+			},800) ;
+
+			// Allow time for empty animation AND load animation
+			_HMQ_TIMER = 16 ;
+			return ;
+		}
+
+		_HIT_ACC-- ;
+
+		// Parameter isRear, zero... meaning pointing at player
+		addBullet(0) ;
+
+		window.setTimeout(function(){ playSfx(1) ; rotateRight() },200) ;
+	}
+
+	if(ent == 'H')
+	{
+		// If misses have been accumulated, 
+		// clear them and re-center hit accumulator
+		if(_HIT_ACC < 5)
+		{
+			// Re-center hit accumulator
+			_HIT_ACC = 6 ; // (5 is center, plus the hit we're processing)
+
+			emptyBullets() ;
+
+			// Allow time for emptyBullets() animation to finish
+			window.setTimeout(function(){
+				addBullet(1) ;
+				window.setTimeout(function(){ playSfx(1) ; rotateLeft() },200) ;
+			},800) ;
+			
+			// Allow time for empty animation AND load animation
+			_HMQ_TIMER = 16 ;
+			return ;
+		}
+
+		// Normal behaviour ... (ie. not waiting for empty() animation to finish
+		// Before adding the bullet)
+		// Register the hit
+		_HIT_ACC++ ;
+
+		// Add bullet, and after a short delay ... rotate it into place
+		addBullet(1) ;
+		window.setTimeout(function(){ playSfx(1) ; rotateLeft() },200) ;
+	}
+
+	// Set timer, allow time for barrel to finish rotating.
+	// IMPORTANT: this isn't in milliseconds. HMQ processes
+	// every 100ms, so this value TIMES 100 is the number of ms.
+	_HMQ_TIMER = 11 ;
+}
+
+function addBullet(isRear)
 {
 	var src ;
 	var ang ;
 
-	if(!isFront) src = 'img/bullet-rear.png' ;
+	if(isRear) src = 'img/bullet-rear.png' ;
 	else src = 'img/bullet-front.png' ;
 
 	var el = document.createElement('img') ;
@@ -979,8 +1066,8 @@ function updateBubReg()
 		if(_BUBREG[i].lspan <= 0)
 		{
 			popBub(i) ;
-			//doMiss() ;
-			triggerMiss() ;
+			// Trigger a miss
+			_HMQ.push('M') ;
 			continue ;
 		}
 		
@@ -1009,6 +1096,21 @@ function updateBubReg()
 // x,y coordinates for center of explosion
 function popBub(i)
 {
+	// If hit accumulator has reached a threshold, act appropriately
+	if(_HIT_ACC == 0)
+	{
+		playSfx(2) ;
+		gameOver() ;
+	}
+		
+	if(_HIT_ACC == 10)
+	{
+		playSfx(3) ;
+		emptyBullets() ; // this will likely fuck up timing, but its temporary
+		_HIT_ACC == 5 ;
+		alert('Bonus life!') ;
+	}
+	
 	var cnv ;
 
 	//var x,y ;
@@ -1272,8 +1374,8 @@ function bubClick(e)
 	
 	popBub(i) ;
 	
-	//doHit() ;
-	triggerHit() ;
+	// Trigger a hit
+	_HMQ.push('H') ;
 }
 
 function nextBg()
@@ -1574,6 +1676,7 @@ function launchSequence6()
 	_IUBR = window.setInterval('updateBubReg()',C_UBR_INT) ;
 	//_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
 	_IUSR = window.setInterval('updateShardReg()',C_USR_INT) ;
+	_IHMQ = window.setInterval('processHMQ()',C_HMQ_INT) ;
 
 	// Start SG generator
 	initSgGen() ;
