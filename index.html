@@ -1332,7 +1332,12 @@ function updateShardReg()
 {
 	var srEnt ;
 
-	if(!_SHARDREG.length) return ;
+	// Return tween ticker to normal when _SHARDREG is empty
+	if(!_SHARDREG.length) { C_TTICK_INT = 333 ; return ; }
+
+	// Slow down tween ticker (which is only updating SG)
+	// While shards are moving ...
+	C_TTICK_INT = 1000 ;
 
 	document.getElementById('shard-container').style.display = 'none' ;
 
@@ -1377,7 +1382,7 @@ function updateShardReg()
 	// Re-show particles after a short delay, causing a flashing effect
 	window.setTimeout(function(){
 		document.getElementById('shard-container').style.display = 'block' ;
-	},100) ;
+	},50) ;
 }
 
 
