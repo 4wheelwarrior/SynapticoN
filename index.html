@@ -473,9 +473,10 @@ function emptyBullets()
 		{
 			el = bullets[j] ;
 
-			el.style.left = randomInt(200,800) + 'px' ;
-			el.style.top = '850px' ;
+			el.style.left = randomInt(400,600) + 'px' ;
+			el.style.top = '550px' ;
 			el.style.webkitTransform = 'rotate(' + randomInt(0,720) + 'deg)' ;
+			el.style.opacity = 0 ;
 		}
 	},50) ;
 
@@ -609,6 +610,8 @@ function tClearBullet()
 	<div id="title-bg-mandala"></div>
 	
 	<div id="bubble-container"></div>
+	<div id="shard-container"></div>
+
 	<div id="scan-lines"></div>
 	<div id="mandala-container">
 		<canvas width="512" height="384" id="mandala-0" style="z-index: 100"></canvas>
@@ -625,8 +628,8 @@ function tClearBullet()
 	<div class="bg-layer" id="bg-5" style="z-index: 20; background:url('img/bg-ind.png')"></div>
 	<div class="bg-layer" id="bg-6" style="z-index: 10; background:url('img/bg-vio.png')"></div>
 	
-	<!-- <script language="javascript">window.setTimeout('titleSequence1()',200)</script> -->
-	<script language="javascript">document.location.href = 'index2.html'</script>
+	<script language="javascript">window.setTimeout('titleSequence1()',200)</script>
+	<!-- <script language="javascript">document.location.href = 'index2.html'</script> -->
 	<!-- #SEC_CSS -->
 <style>
 html,body{
@@ -760,6 +763,13 @@ html,body{
 		width: 1024px ;
 		height: 768px ;
 		z-index: 1000 ;
+}
+
+#shard-container{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		z-index: 1100 ;
 }
 
 #scan-lines{
@@ -1270,7 +1280,8 @@ function explode(x,y,rNom,p)
 	//var elBurst ;				// <img> element for animated gif burst
 	var r ;						// Actual radius of current particle, including organic factor
 
-	var elBody = document.getElementById('thebody') ;
+	var elCtr = document.getElementById('shard-container') ;
+
 	console.log('== start particles ==') ;
 	// Create particles
 	for(var i = 0; i < p; i++)
@@ -1306,7 +1317,7 @@ function explode(x,y,rNom,p)
 		el.style.webkitTransform = 'rotate('+a+'deg)' ;
 		el.style.transform 		 = 'rotate('+a+'deg)' ;
 
-		elBody.appendChild(el) ;
+		elCtr.appendChild(el) ;
 
 		_SHARDREG.push({'el':el,
 						'x':x,'y':y,'w':w,
@@ -1322,6 +1333,8 @@ function updateShardReg()
 	var srEnt ;
 
 	if(!_SHARDREG.length) return ;
+
+	document.getElementById('shard-container').style.display = 'none' ;
 
 	for(var i = 0; i < _SHARDREG.length; i++)
 	{
@@ -1360,6 +1373,11 @@ function updateShardReg()
 			_SHARDREG.splice(i,1) ;
 		}
 	}
+
+	// Re-show particles after a short delay, causing a flashing effect
+	window.setTimeout(function(){
+		document.getElementById('shard-container').style.display = 'block' ;
+	},100) ;
 }
 
 
@@ -1674,6 +1692,8 @@ function launchSequence1()
 	// And audio needs to be triggered by a user event
 	// Because of some bullshit data plan babysitting routine :p
 	playAudio() ;
+	_AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+
 	_ILPP = window.setInterval('doAudioLoop()',4000) ;
 
 	// Fade in start dialog

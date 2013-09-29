@@ -8,7 +8,7 @@
 <script src="tween.js"></script>
 
 <script>
-var C_DISAUDIO				= false ;
+var C_DISAUDIO				= true ;
 var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
 
 // #SEC_JSHEAD
@@ -162,6 +162,8 @@ function main()
 	// ... try without ... maybe iSafari is smart enough to detect 1st call to doAudioLoop
 	// as a user-initiated action ... ? EDIT: Nope, apparently not ...
 	playAudio() ;
+
+	// Make sure 1st audio loop doesn't ovverrun (doLoop() kicks in after ~3s)
 	_AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
 
 	initSgGen() ;
