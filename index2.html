@@ -162,6 +162,7 @@ function main()
 	// ... try without ... maybe iSafari is smart enough to detect 1st call to doAudioLoop
 	// as a user-initiated action ... ? EDIT: Nope, apparently not ...
 	playAudio() ;
+	_AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
 
 	initSgGen() ;
 	// Other initializations etc...
@@ -365,8 +366,10 @@ function updateShardReg()
 		}
 	}
 
-	// Show shards again
-	document.getElementById('shard-container').style.display = 'block' ;
+	// Show shards again, after a short delay
+	window.setTimeout(function(){
+		document.getElementById('shard-container').style.display = 'block' ;
+	},100) ;
 }
 
 function tweenTicker()
@@ -465,6 +468,7 @@ function spawnBubble()
 	cnvDom.style.left 		= x + 'px' ;
 	cnvDom.style.top 		= y + 'px' ;
 	cnvDom.style.opacity 	= 0	;
+	cnvDom.style.zIndex     = 1200 ;
 	
 	// Tap/Click handler needs to lookup which bubble was hit
 	// Assign it a serial number, stored in the <canvas> id property
@@ -777,7 +781,7 @@ function popBub(i)
 }
 
 function bubClick(e)
-{	
+{
 	var ser = e.target.id ;
 		
 	// Find index in _BUBREG of bubble with serial #  'ser'
