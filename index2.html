@@ -9,7 +9,7 @@
 
 <script>
 var C_DISAUDIO				= false ;
-var C_TAPEVENT				= 'click' // 'touchstart' or 'click' for iPad or Desktop...
+var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
 
 // #SEC_JSHEAD
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
@@ -222,7 +222,10 @@ function processHMQ()
 	if(_HIT_ACC == 0)
 	{
 		playSfx(2) ;
-		gameOver() ;
+
+		// Game Over 'sequence'
+		alert('game over!') ;
+		window.location.href = "index2.html" ;
 	}
 	
 	// If it reaches 10, fireworks time!
