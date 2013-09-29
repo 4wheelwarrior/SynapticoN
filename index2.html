@@ -324,6 +324,12 @@ function updateShardReg()
 	// Slow down tween ticker while updating shards ...
 	_TTINT = 1500 ;
 
+	// Hide shards, re-position them, then re-display ...
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		_SHARDREG[i].el.style.display = 'none' ;
+	}
+
 	for(var i = 0; i < _SHARDREG.length; i++)
 	{
 		// Loop up from array only once ...
@@ -360,6 +366,12 @@ function updateShardReg()
 			_SHARDREG[i].el.parentElement.removeChild(_SHARDREG[i].el)
 			_SHARDREG.splice(i,1) ;
 		}
+	}
+
+	// Show shards again
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		_SHARDREG[i].el.style.display = 'block' ;
 	}
 }
 
