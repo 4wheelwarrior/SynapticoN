@@ -1,0 +1,1265 @@
+
+<html>
+<head>
+
+<title>SynapticoN</title>
+
+<script src="phonegap.js"></script>
+<script src="tween.js"></script>
+
+<script>
+var C_DISAUDIO				= false ;
+var C_TAPEVENT				= 'click' // 'touchstart' or 'click' for iPad or Desktop...
+
+// #SEC_JSHEAD
+var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
+var C_RBMIN					= 20 ;		// Min value of base radius (native canvas size)
+var C_RBMAX					= 40 ;		// Max value of base radius (display size will be 2x this)
+var C_IAMAX					= 12 ;		// Maximum _AOFFSET reached before we wrap around to zero
+										// (12 * 137.5 = 1650 degrees)
+
+var C_MWIDTH 				= 1024 ;	// Mandala base size (starts here, scales up)
+var C_MHEIGHT 				= 768 ;
+
+var C_MSCALE_MAX 			= 0.15 ;	// Scale mandala UP by this factor before fading out
+										// EG 0.3 = 30% means 800px will scale to 800 + (30% * 800)
+													
+var C_MOPAC_MIN				= 0.0 ;		// Min/Max opacities of mandalas as they grow
+var C_MOPAC_MAX 			= [0.20,0.15,0.35,0.20,0.10,0.10,0.20] ;
+
+var C_MSCALE_DUR			= 12000 ;	// Duration of life and death cycle (total cycle is 2x)
+
+var C_BUB_SPAWNPROB			= 0.2 ;		// Probability of a spawn each time spawnBubble() called
+var C_BUB_MAX				= 6 ;		// Max # of bubbles on screen simultaneously
+var C_BUB_LSPAN_MIN			= 4000 ; 	// Min lifespan of a bubble (msec)
+var C_BUB_LSPAN_MAX			= 8000 ;	// Max lifespan
+var C_BUB_RADIUS_MIN		= 30 ;		// Min radius of bubble (pixels)
+var C_BUB_RADIUS_MAX		= 70 ;		// Max radius
+
+var C_BUB_OPAC 				= [0.25,0.20,0.25,0.20,0.10,0.10,0.20] ;
+
+var C_BUB_FADEIN			= 3000 ;	// ms for a bubble to fade into existence
+var C_BUB_EDGEPAD			= 100 ;		// Padding for bubble region (from screen edges)
+var C_BUB_EXPRATE			= 1 ;		// Expansion rate of bubble's radius (pixels per tick)
+
+var C_BUB_PBOPAC			= 0.40 		// Bubble opacity becomes this value before bursting
+var C_BUB_PBEXP				= 0.13 ;	// Bubble scales up by this factor before bursting
+var C_BUB_GEOM				= [ [99], 	// Which polygons for each colour.Starting @ RED
+								[99], 					// ORG
+								[3,4,99],				// YEL
+								[99],					// GRN
+								[5,6,99],				// BLU
+								[5,6,7,8,99],			// IND
+								[3,4,5,6,7,8,9,99]		// VIO
+							  ] ;		// Index can piggyback off _bgIdx
+
+var C_BUB_CRAT				= 0.16; 	// Corner radius of polygon bubbles, ratio of radius
+
+var C_HIT_CONSEC			= 5 ;		// # of consecutive hits/misses required to trigger life loss or gain
+
+// PHI... calculated by its mathematical definition
+var C_PHI 					= ( 1 + Math.sqrt(5) ) / 2 ;
+
+// 137.5 degrees expressed as radians
+// This is the inside angle formed when a circle is divided
+// into two arcs, their lengths being PHI in proportion...
+var C_DA 					= 2.39982772 ;
+
+var C_SDIST_ORG				= 10 ; 		// Shard distribution "organic" factor (+/- this many degrees)
+var C_BLSTRAD_ORG			= 0.3 ; 	// Shard "blast radius" organic factor (percentage of nominal radius)
+var C_SVELOC				= 5 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SDA					= 30 ;		// Shard angular velocity. Random selection within +/- this value
+
+// Starting times of each audio loop
+// They're all the same length
+var C_LOOP_DICT 	= [0,3,6,9,12,15,18] ;
+
+// Start times and durations of all other sound effects
+// Used by playSfx() function to cue and then pause after a delay
+// In order, these are: 0:burst, 1:gun cock, 2:gun fire, 3:life up, 4:life down, 5:game over
+var C_SFX_DICT		= [[21,1200],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] ;
+
+// Globals for interval tickers (needed so we can clear them later)
+
+// Screen resolution of device
+var _SCRWID				= 1024 ;
+var _SCRHGT				= 768 ;
+
+// Total number of bubbles spawned
+var _BUB_TOTAL 			= 0 ;
+
+// Total number of bubbles hit
+var _BUB_HIT 			= 0 ;
+
+// Hit/Miss queue. FIFO, new elements PUSHED on
+// Stores 2 for hit, 1 for miss
+var _HMQ				= [] ;
+var _HMQ_TIMER			= 0 ;
+
+// "Hit Accumulator"
+// Counts up every time a hit is accumulated, down for misses
+// When it reaches 0, death. 10, life. 'Center' is 5.
+var _HIT_ACC			= 5 ;
+
+// Bubble registry (keeps track of all bubbles on screen)
+// Each entry is also an array [domRef,lspan]
+// domRef is pointer to <canvas> object
+// lspan is number of milliseconds until <canvas> is removed
+// each time updateBubReg() ticks, lspan is decremented proportionally
+// i.e. if updateBubReg() is on a 100ms interval, decrement is 10 (1/10th of a second)
+var _BUBREG				= [] ;
+
+// Tracks explosive shards
+var _SHARDREG			= [] ;
+
+// Index of current BG colour (i.e. which one gets faded when nextBg is called)
+// Other sequences are keyed off this too ... opacities, sound loops, geometry, etc
+var _bgIdx 				= 0 ;
+
+// Mandala canvases
+var _M	= [] ;			// DOM pointers to mandala canvases
+
+var _IM	= 0 ;			// Index of mandala canvas being drawn
+
+var _RBASE ;			// Base radius of mandala set being drawn
+var _R ;				// Radius of current mandala being drawn
+var _IA	;				// Multiplier  on _DA to determine offset angle of mandala
+
+var _AUDIO ;			// HTML5 audio object
+var _AUD_TIMEOUT ;		// Audio timeout counters (for re-pausing after a delay)
+
+var _PAUSESG = false ;	// Can be toggled to pause SG animations when doing visual FX overtop
+
+var _WBBL = 120 ; 		// center point will be _WBBL/2, _WBBL/2
+var _RBBL = 34 ; 		// Radius from center of barrel to center of bullet holes
+var _WBUL = 34 ; 		// Interesting coincidence with above ... !
+var _AOFF = Math.PI / 2 - ( 2 * Math.PI / 5 ) ; // initial offset angle, 90* due north minus 360/5 = 72deg from top
+
+var _ABBL = 0 ;
+var _DABBL = 72 ; 		// 72deg is increment
+
+var _ICLR ; 			// Interval to clear bullets
+
+var _LC = 100 ; 			// Loop time Counter
+
+/*****************************************
+*
+*  I N I T   F U N C T I O N S
+*
+******************************************/
+
+// 1st call when page loads.
+// Entry point for app.
+function main()
+{
+	document.getElementById('bn-start').style.display = 'none' ;
+
+	_AUDIO 	= document.getElementById('snd-sprite') ;
+
+	// Start the loop here too, because it'll sound sexy ...
+	// And audio needs to be triggered by a user event
+	// Because of some bullshit data plan babysitting routine :p
+	// ... try without ... maybe iSafari is smart enough to detect 1st call to doAudioLoop
+	// as a user-initiated action ... ?
+	//playAudio() ;
+
+	initSgGen() ;
+	// Other initializations etc...
+	window.setInterval('mainLoop()', 100) ;
+}
+
+function initSgGen()
+{
+	_M[0] 	= document.getElementById('mandala-0') ;
+	_M[1] 	= document.getElementById('mandala-1') ;
+	_M[2] 	= document.getElementById('mandala-2') ;
+	
+	_RBASE 	= randomInt(C_RBMIN, C_RBMAX) ;
+	_IA		= randomInt(0, C_IAMAX) ;
+	
+	spawnMandalaCycle() ;
+}
+
+/*****************************************
+*
+*  I N I T   F U N C T I O N S
+*
+******************************************/
+
+// This is where everything happens.
+// Replaces javascript setInterval()'s .
+// Cleaner and more controllable this way.
+// Eliminates a bunch of constants for loop intervals. Etc. etc.
+function mainLoop()
+{
+	if(!(_LC % 100)) 	processHMQ() ;
+
+	if(!(_LC % 250)) 	updateShardReg() ;
+	
+	if(!(_LC % 300)) 	tweenTicker() ;
+
+	if(!(_LC % 500)) 	updateBubReg() ;
+
+	if(!(_LC % 1000)) 	spawnBubble() ;
+
+	if(!(_LC % 3200)) 	doAudioLoop() ;
+
+	if(!(_LC % 6000)) 	spawnMandalaCycle() ;
+	
+	if(!(_LC % 60000)) 	nextBG() ;
+
+	// Increment loop counter, reset when necessary
+	_LC += 100 ;
+	if(_LC >= 120000) _LC = 100 ;
+}
+
+function processHMQ()
+{
+	document.getElementById('lf').innerHTML = 'HIT ACC: '+_HIT_ACC ;
+	if(!_HMQ.length) return ;
+
+	// If hit accumulator has reached zero, death time!
+	if(_HIT_ACC == 0)
+	{
+		playSfx(2) ;
+		gameOver() ;
+	}
+	
+	// If it reaches 10, fireworks time!
+	if(_HIT_ACC == 10)
+	{
+		playSfx(3) ;
+		//emptyBullets() ; // this will likely fuck up timing, but its temporary
+		_HIT_ACC = 5 ;
+	}
+
+	_HMQ_TIMER-- ;
+
+	// Wait until current HMQ entry is processed
+	// i.e. done animating, until proceeding
+	if(_HMQ_TIMER > 0) return false ;
+
+	// If timer has run down, process the next entry ...
+	var ent = _HMQ.shift() ;
+
+	if(ent == 'M')
+	{
+		// If hits have been accumulated, 
+		// clear them and re-center hit accumulator
+		if(_HIT_ACC > 5)
+		{
+			_HIT_ACC = 4 ; // (5 is center, minus the miss we're processing)
+
+			/*
+			emptyBullets() ;
+
+			// Allow time for emptyBullets() to finish running
+			window.setTimeout(function(){
+				addBullet(0) ;
+				window.setTimeout(function(){ playSfx(1) ; rotateRight() },200) ;
+			},800) ;
+			*/
+			// Allow time for empty animation AND load animation
+			_HMQ_TIMER = 16 ;
+			return ;
+		}
+
+		_HIT_ACC-- ;
+
+		// Parameter isRear, zero... meaning pointing at player
+		//addBullet(0) ;
+
+		//window.setTimeout(function(){ playSfx(1) ; rotateRight() },200) ;
+	}
+
+	if(ent == 'H')
+	{
+		// If misses have been accumulated, 
+		// clear them and re-center hit accumulator
+		if(_HIT_ACC < 5)
+		{
+			// Re-center hit accumulator
+			_HIT_ACC = 6 ; // (5 is center, plus the hit we're processing)
+
+			/*
+			emptyBullets() ;
+
+			// Allow time for emptyBullets() animation to finish
+			window.setTimeout(function(){
+				addBullet(1) ;
+				window.setTimeout(function(){ playSfx(1) ; rotateLeft() },200) ;
+			},800) ;
+			*/
+			// Allow time for empty animation AND load animation
+			_HMQ_TIMER = 16 ;
+			return ;
+		}
+
+		// Normal behaviour ... (ie. not waiting for empty() animation to finish
+		// Before adding the bullet)
+		// Register the hit
+		_HIT_ACC++ ;
+
+		// Add bullet, and after a short delay ... rotate it into place
+		//addBullet(1) ;
+		//window.setTimeout(function(){ playSfx(1) ; rotateLeft() },200) ;
+	}
+
+	// Set timer, allow time for barrel to finish rotating.
+	// IMPORTANT: this isn't in milliseconds. HMQ processes
+	// every 100ms, so this value TIMES 100 is the number of ms.
+	_HMQ_TIMER = 11 ;
+}
+
+function updateShardReg()
+{
+	var srEnt ;
+
+	if(!_SHARDREG.length) return ;
+
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		// Loop up from array only once ...
+		// Should get stored as reference to array element
+		srEnt = _SHARDREG[i] ;
+
+		// Apply movement to shard, update coordinates
+		srEnt.x = srEnt.x + srEnt.dx ;
+		srEnt.y = srEnt.y + srEnt.dy ;
+		srEnt.a = srEnt.a + srEnt.da ;
+		srEnt.w = srEnt.w + srEnt.dw ;
+
+		if(srEnt.w < 0) srEnt.w = 0 ;
+
+		srEnt.el.style.display = 'none' ;
+		srEnt.el.style.left = srEnt.x + 'px' ;
+		srEnt.el.style.top 	= srEnt.y + 'px' ;
+		srEnt.el.style.webkitTransform  = 'rotate('+srEnt.a+'deg)' ;
+		//srEnt.el.style.transform 		= 'rotate('+srEnt.a+'deg)' ;
+		srEnt.el.style.width = srEnt.w + 'px' ;
+		srEnt.el.style.display = 'block' ;
+
+		// Increment lifecycle counter
+		_SHARDREG[i].lc = _SHARDREG[i].lc + 1 ;
+
+		// Check "lifecycle counter". Since C_SVELOC is expressed
+		// as "# of ticks until full radius", it can also be used
+		// as a yardstick to determine when shard has reached its outer limit
+		if(_SHARDREG[i].lc > C_SVELOC)
+		{
+			console.log('Shard at outer limit, removing it...') ;
+			
+			// Remove DOM node and entry from _SHARDREG...
+			_SHARDREG[i].el.parentElement.removeChild(_SHARDREG[i].el)
+			_SHARDREG.splice(i,1) ;
+		}
+	}
+}
+
+function tweenTicker()
+{
+    if(_PAUSESG) return ;
+    TWEEN.update() ;
+}
+
+function updateBubReg()
+{
+	for(var i = 0; i < _BUBREG.length; i++)
+	{
+		if(_BUBREG[i].lspan <= 0)
+		{
+			popBub(i) ;
+			// Trigger a miss
+			_HMQ.push('M') ;
+			continue ;
+		}
+		
+		// Update bubble's position
+		_BUBREG[i].x = _BUBREG[i].x + _BUBREG[i].dx ;
+		_BUBREG[i].y = _BUBREG[i].y + _BUBREG[i].dy ;
+
+		// Update bubble's width/height scale
+		_BUBREG[i].ws = _BUBREG[i].ws + _BUBREG[i].dws ;
+		_BUBREG[i].hs = _BUBREG[i].hs + _BUBREG[i].dhs ;
+
+		// Apply transformation
+		_BUBREG[i].cnv.style.left 		= _BUBREG[i].x + 'px' ;
+		_BUBREG[i].cnv.style.top 		= _BUBREG[i].y + 'px' ;
+		
+		//_BUBREG[i].cnv.style.webkitTransform = 'scale(' + _BUBREG[i].ws + ',' + _BUBREG[i].hs + ')' ; 
+
+		//_BUBREG[i].cnv.style.width 		= _BUBREG[i].w + 'px' ;
+		//_BUBREG[i].cnv.style.height 	= _BUBREG[i].h + 'px' ;
+		
+		// Decrement lifecycle counter
+		_BUBREG[i].lspan = _BUBREG[i].lspan - 500 ;
+	}
+}
+
+function spawnBubble()
+{
+	// If we've already spawned max number of bubbles, skip this...
+	if(_BUBREG.length > C_BUB_MAX) return ;
+	
+	// Generate random test value (random, between 0 and 1.0)
+	// If it falls outside the probability factor, do nothing. Return.
+	var p = C_BUB_SPAWNPROB ;
+	var t = Math.random() ;
+	
+	if(t > p) return ;
+	
+	// If we fall through to here, time to spawn a bubble ...
+	var cnvDom ;
+	
+	var r = randomInt(C_BUB_RADIUS_MIN, C_BUB_RADIUS_MAX) ;
+	var l = randomInt(C_BUB_LSPAN_MIN, C_BUB_LSPAN_MAX) ;
+	//var o = randomInt(C_BUB_OPAC_MIN * 100, C_BUB_OPAC_MAX * 100) / 100 ;
+	var o = C_BUB_OPAC[_bgIdx] ;
+
+	// Position bubble so its edges always remain within padding
+	var x = randomInt(C_BUB_EDGEPAD + 2 * r, _SCRWID - C_BUB_EDGEPAD - 2 * r) ;
+	var y = randomInt(C_BUB_EDGEPAD + 2 * r, _SCRHGT - C_BUB_EDGEPAD - 2 * r) ;
+
+	// Start out perfectly round (CSS transform: scale(1,1))
+	var ws = 1 ;
+	var hs = 1 ;
+	
+	//var dx = randomInt(C_BUBDX_MIN,C_BUBDX_MAX) ;
+	//var dy = randomInt(C_BUBDY_MIN,C_BUBDY_MAX) ;
+
+	//var dws = randomInt(C_BUBDWS_MIN,C_BUBDWS_MAX) / 1000 ;
+	//var dhs = randomInt(C_BUBDHS_MIN,C_BUBDHS_MAX) / 1000 ;
+
+	var dx = 0 ;
+	var dy = 0 ;
+	var dws = 0 ;
+	var dhs = 0 ;
+
+	// Look up valid geometries for colour we're on, randomly select one
+	var geom = C_BUB_GEOM[_bgIdx] ;
+	var sides = geom[randomInt(0,geom.length - 1)] ;
+	
+	//console.log('Spawning bubble with r, o, l, x, y: '+r+', '+o+', '+l+', '+x+', '+y) ;
+	
+	// Create canvas, draw on it
+	cnvDom = drawBubbleCnv(r,sides);
+	
+	// TODO: see about blanket listener on parent element, would it decrease latency?
+	// Attach event handler on <canvas> object
+	cnvDom.addEventListener(C_TAPEVENT, bubClick, false);
+	
+	// Position canvas and set opacity to zero (in preparation for fade in)
+	cnvDom.style.left 		= x + 'px' ;
+	cnvDom.style.top 		= y + 'px' ;
+	cnvDom.style.opacity 	= 0	;
+	
+	// Tap/Click handler needs to lookup which bubble was hit
+	// Assign it a serial number, stored in the <canvas> id property
+	cnvDom.id = _BUB_TOTAL ;
+	
+	// Add to bubble registry, increment total bubble count
+	_BUBREG.push({	'ser':_BUB_TOTAL,
+					'cnv':cnvDom,
+					'lspan':l,
+					'o':o,'r':r,'x':x,'y':y,'ws':ws,'hs':hs,
+					'dx':dx,'dy':dy,
+					'dws':dws,'dhs':dhs}) ;
+	
+	_BUB_TOTAL++ ;
+
+	// Finally ... append into parent container and start fade ...
+ 	document.getElementById('bubble-container').appendChild(cnvDom) ;
+ 	fadeElementIn(cnvDom,C_BUB_FADEIN,function(){},o) ;
+}
+
+function doAudioLoop()
+{
+    if(C_DISAUDIO) return 0 ;
+
+    _AUDIO.currentTime = C_LOOP_DICT[_bgIdx] ;
+    if(_AUDIO.paused) _AUDIO.play() ;
+
+    window.clearTimeout(_AUD_TIMEOUT) ;
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+}
+
+function nextBG()
+{
+	// If we're on the last background already, we're done ... halt the game
+	if(_bgIdx == 6)
+	{
+		halt() ;
+		return ;
+	}
+	
+	// Retrieve background element and make it disappear!
+	var el = document.getElementById('bg-'+_bgIdx) ;
+		
+    fadeElementOut(el, 4600, function () {
+        // Remove from DOM tree once invisible ...
+        el.parentElement.removeChild(el) ;
+    });
+    
+    _bgIdx++ ;
+}
+
+
+/*****************************************
+*
+*  S. G.   F U N C T I O N S
+*
+******************************************/
+
+function spawnMandalaCycle()
+{
+	var a ; 			// offset angle (which angle we start drawing at)
+	var r ; 			// radius (of each 'cell' within the mandala)
+	var cnv ; 			// mandala canvas element
+	var ctx ; 			// 2d context from mandala canvas
+  
+	// Wrap angle around to zero if we've reached the max
+	// EXPLANATION: When angle reaches 1650 degrees, the next 137.5 degrees
+	// Takes us to 1787.5 degrees, which is equivalent to 347.5 degrees.
+	// Instead of going to 347.5 degrees, we'll jump to 360 (zero degrees)
+	// Yep, it's off by 12.5 degrees... but that is a very small angle!
+	if(_IA == C_IAMAX ) _IA = 0 ;
+	
+	// If we've drawn the third mandala,
+	// reset _IM and re-randomize _RBASE
+	if(_IM > 2)
+	{
+		_RBASE = randomInt(C_RBMIN,C_RBMAX) ;
+		_IM = 0 ;
+	}
+	
+	cnv = _M[_IM] ;
+	ctx = cnv.getContext('2d') ;
+	r 	= _RBASE * Math.pow(C_PHI,_IM) ;
+	a 	= _IA * C_DA ;
+	
+	// Reset canvas opacity and size before redrawing
+	cnv.style.display = 'none' ;
+	cnv.style.opacity = 0 ;
+	cnv.style.width 	= C_MWIDTH + 'px' ;
+	cnv.style.height	= C_MHEIGHT + 'px' ;
+	cnv.style.display = 'block' ;
+	
+	// Remember, "native size" of canvas is HALF of nominal width/height
+	ctx.clearRect(0, 0, C_MWIDTH / 2, C_MHEIGHT / 2) ;
+	
+	// Draw flower of life, centered on the canvas
+	// using previously calculated 'r' and 'a' values
+	// Remember, again, the native size of the canvas ...
+	// center of canvas will be (C_MWIDTH / 4)
+	drawFol(ctx, C_MWIDTH / 4, C_MHEIGHT / 4, r, a) ;
+	
+	// Set off chain of scale/fade tweens, which will
+	// eventually call 'spawnMandalaCycle' again
+	mGrowCycle(cnv) ;
+
+  // Thanks to CSS transforms, all we do is this ...
+  //cnv.className = 'm-cycle' ;
+	
+	// Advance to next canvas and next angle
+	// For the next time this fn is called...
+	_IM++ ;
+	_IA++ ;
+}
+
+function drawFol(ctx, cx, cy, r, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    drawSol(ctx, cx, cy, r, ao) ;
+
+    for(var i = 0; i < C_SEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
+        x = Math.round(cx + 2 * r * Math.cos(a)) ;
+        y = Math.round(cy + 2 * r * Math.sin(a)) ;
+
+        drawSol(ctx, x, y, r, a) ;
+    }
+}
+
+function drawSol(ctx, cx, cy, r, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    drawCell(ctx, cx, cy, r) ;
+
+    for(var i = 0; i < C_SEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
+        x = Math.round(cx + r * Math.cos(a)) ;
+        y = Math.round(cy + r * Math.sin(a)) ;
+        drawCell(ctx, x, y, r) ;
+    }
+}
+
+function drawCell(ctx, cx, cy, r){
+    var cR = 255 ;
+    var cG = 255 ;
+    var cB = 255 ;
+
+    var rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', 0.2)') ;
+    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', 0.5)') ;
+
+    ctx.beginPath() ;
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+    ctx.fillStyle = rg ;
+    ctx.fill() ;
+}
+
+// Scales mandala canvas M around its center point
+// by a factor of 's' where 0 < s < 1.0
+function scaleFromCenter(M,s)
+{
+	var w, h, cX, cY, cXNom, cYNom ;
+		
+	w = Math.round(C_MWIDTH 	* (1 + s)) ;
+	h = Math.round(C_MHEIGHT 	* (1 + s)) ;
+		
+    // Compute original (non-scaled) center point, AKA 'nominal' center point
+    cXNom = C_MWIDTH / 2 ;
+    cYNom = C_MHEIGHT / 2 ;
+    
+    // Compute current center point (with scaling factor applied)
+    cX	= w / 2 ;
+    cY	= h / 2 ;
+    
+    // Adjust width and height
+    M.style.width   = w + 'px' ;
+    M.style.height  = h + 'px' ;
+    
+    // NOW ... Adjust positioning to keep the mandala centered
+    M.style.left	= -1 * Math.round(cX - cXNom) + 'px' ;
+    M.style.top		= -1 * Math.round(cY - cYNom) + 'px' ;
+}
+
+function mGrowCycle(cnv)
+{
+	var twn = { s: 0, o: C_MOPAC_MIN } ;
+  	var eas = TWEEN.Easing.Quartic.Out ;
+  
+	new TWEEN.Tween( twn )
+      .to( { s:C_MSCALE_MAX, o:C_MOPAC_MAX[_bgIdx] }, C_MSCALE_DUR )
+      .easing( eas )
+      .onComplete(function(){
+      		mDeathCycle(cnv) ;
+      	})
+      .onUpdate( function () {
+          cnv.style.opacity = twn.o ;
+          scaleFromCenter(cnv,twn.s) ;
+      }).start();
+}
+
+function mDeathCycle(cnv)
+{
+	var twn = { s: C_MSCALE_MAX, o: C_MOPAC_MAX[_bgIdx] } ;
+  	var eas = TWEEN.Easing.Quartic.Out ;
+  
+	new TWEEN.Tween( twn )
+      .to( { s: 2 * C_MSCALE_MAX, o:0 }, C_MSCALE_DUR )
+      .easing( eas )
+      .onComplete(function(){}) // new mandala cycle already got spawned ...
+      .onUpdate( function () {
+          cnv.style.opacity = twn.o ;
+          //scaleFromCenter(cnv,twn.s) ;
+      }).start();
+}
+
+
+/*****************************************
+*
+*  B U B B L E    F U N C T I O N S
+*
+******************************************/
+
+// Creates a bubble <canvas>, draws a bubble on it,
+// returns <canvas> DOM ref
+// <canvas> is rendered at 2x native size for a slightly pixellated effect
+// 'r' refers to the radius of the SCALED bubble... SO.. we need to draw
+// it at 'half size' so it'll be correct when scaled up
+// 'e' is the edge count. A polygon with this many edges is drawn.
+// the value 99 means 'draw a circle'
+function drawBubbleCnv(r, e)
+{	
+	var cnv = document.createElement('canvas') ;
+	
+	// Draw bubble at half size and scale it up
+	// So it's a bit fuzzy like the SG mandalas ...
+	var rScaled = Math.round(r/2) ;
+	
+	cnv.width 					= 2 * rScaled ;
+	cnv.height 					= 2 * rScaled ;
+	cnv.style.position 	= 'absolute' ;
+	cnv.style.width 		= 2 * r + 'px' ;
+	cnv.style.height 		= 2 * r + 'px' ;
+	cnv.style.opacity 	= 0 ; // starts at zero, will be faded in
+	cnv.style.zIndex 		= 200 ;
+	
+	var ctx = cnv.getContext('2d') ;
+
+	if(e == 99) drawCell(ctx, rScaled, rScaled, rScaled) ;
+	else drawPoly(ctx, rScaled, rScaled, rScaled, e) ;
+
+	return cnv ;
+}
+
+// x,y coordinates for center of explosion
+function popBub(i)
+{
+	var cnv ;
+
+	//var x,y ;
+
+	var burstX = _BUBREG[i].x + _BUBREG[i].r ;
+	var burstY = _BUBREG[i].y + _BUBREG[i].r ;
+
+	// TODO: make these constants ...
+	burstX -= randomInt(0,5) ;
+	burstY -= randomInt(0,5) ;
+
+	// Scaling factor (px) applied just before disappearing
+	var wFac, hFac ;
+	
+	//x = _BUBREG[i].x + _BUBREG[i].r ;
+	//y = _BUBREG[i].y + _BUBREG[i].r ;
+	
+	// Calculate 'pre-burst expansion' values (size expands by this many pixels)
+	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
+	hFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
+
+	// Trigger burst sound effect
+	playSfx(0) ;
+
+	// center (x,y), blast radius 'r', particle count 'p'
+	// TODO: transfer blast radius scaling factor into constant
+	explode(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
+	
+	// Does this get handled by GC?
+	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
+	//_BUBREG.splice(i,1) ;
+	
+	cnv = _BUBREG[i].cnv ;
+
+	cnv.style.opacity 	= C_BUB_PBOPAC ;
+	cnv.style.width 	= 2 * _BUBREG[i].r + wFac + 'px' ;
+	cnv.style.height 	= 2 * _BUBREG[i].r + hFac + 'px' ;
+
+	// Offset left and top coords to keep bubble centered
+	cnv.style.left		= _BUBREG[i].x - Math.floor(wFac / 2) + 'px' ;
+	cnv.style.top		= _BUBREG[i].y - Math.floor(hFac / 2) + 'px' ;
+	
+	// Remove from _BUBREG immediately, but leave canvas element briefly visible ...
+	_BUBREG.splice(i,1) ;
+
+	// TODO: transfer pre-burst expansion time into constant
+	window.setTimeout(function(){ cnv.parentNode.removeChild(cnv) },120) ;
+}
+
+function bubClick(e)
+{	
+	var ser = e.target.id ;
+		
+	// Find index in _BUBREG of bubble with serial #  'ser'
+	for(var i = 0; i < _BUBREG.length; i++)
+	{
+		if(_BUBREG[i].ser == ser) break ;
+	}
+	
+	popBub(i) ;
+	
+	// Trigger a hit
+	_HMQ.push('H') ;
+}
+
+function drawPoly(ctx, cX, cY, r, edgeCount, aOffset)
+{
+	if(!aOffset) aOffset = 0 ;
+
+	var pts = getPolyPts(cX, cY, r, edgeCount, aOffset) ;
+	var cRad = Math.floor(C_BUB_CRAT * r) ;
+	doPolyDraw(ctx, pts, cRad,0.6) ;
+
+	pts = getPolyPts(cX, cY, r - 1, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, cRad,0.4) ;
+
+	pts = getPolyPts(cX, cY, r - 2, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, cRad,0.3) ;
+	pts = getPolyPts(cX, cY, r - 3, edgeCount, aOffset) ;
+
+	doPolyDraw(ctx, pts, cRad,0.2) ;
+}
+
+function getPolyPts(cX, cY, r, edgeCount, aOffset)
+{
+	if(!aOffset) aOffset = 0 ;
+	
+	var a = 0 ;
+	var x = 0 ;
+	var y = 0 ;
+
+	var pts = [] ;
+
+	for(var i = 0; i < edgeCount; i++)
+	{
+		a = aOffset + 2 * Math.PI / edgeCount * i ;
+		x = cX + r * Math.cos(a) ;
+		y = cY + r * Math.sin(a) ;
+
+		pts.push([Math.round(x),Math.round(y)]) ;
+	}
+
+	return pts ;
+}
+
+// Lifted from http://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
+function doPolyDraw(ctx, pts, radius, opac) {
+  if (radius > 0) pts = getRoundedPoints(pts, radius);
+
+  var i, pt, len = pts.length;
+  ctx.beginPath();
+  for (i = 0; i < len; i++) {
+    pt = pts[i];
+    if (i == 0) {          
+      ctx.moveTo(pt[0], pt[1]);
+    } else {
+      ctx.lineTo(pt[0], pt[1]);
+    }
+    if (radius > 0) {
+      ctx.quadraticCurveTo(pt[2], pt[3], pt[4], pt[5]);
+    }
+  }
+  ctx.closePath();
+  ctx.strokeStyle = 'rgba(255,255,255,'+opac+')' ;
+  ctx.stroke() ;
+}
+
+function getRoundedPoints(pts, radius) {
+  var i1, i2, i3, p1, p2, p3, prevPt, nextPt,
+      len = pts.length,
+      res = new Array(len);
+  for (i2 = 0; i2 < len; i2++) {
+    i1 = i2-1;
+    i3 = i2+1;
+    if (i1 < 0) {
+      i1 = len - 1;
+    }
+    if (i3 == len) {
+      i3 = 0;
+    }
+    p1 = pts[i1];
+    p2 = pts[i2];
+    p3 = pts[i3];
+    prevPt = getRoundedPoint(p1[0], p1[1], p2[0], p2[1], radius, false);
+    nextPt = getRoundedPoint(p2[0], p2[1], p3[0], p3[1], radius, true);
+    res[i2] = [prevPt[0], prevPt[1], p2[0], p2[1], nextPt[0], nextPt[1]];
+  }
+  return res;
+};
+
+function getRoundedPoint(x1, y1, x2, y2, radius, first) {
+  var total = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)),
+      idx = first ? radius / total : (total - radius) / total;
+  return [x1 + (idx * (x2 - x1)), y1 + (idx * (y2 - y1))];
+};
+
+
+/*****************************************
+*
+* E X P L O S I O N    F U N C T I O N S
+*
+******************************************/
+
+// Triggers an explosion at center point (x,y)
+// With average blast radius 'r' and particle count 'p'
+// More accurately, sets up and inserts particles (shards) for an explosion ...
+// updateShardReg() handles the animation of said particles.
+function explode(x,y,rNom,p)
+{
+	var el ;					// Current particle we're working on ...
+	var w = 40 ;				// Default particle width
+	
+	var dx, dy ;				// dX and dY values calculated for particle
+								// from blast radius 'r' and particle velocity
+	
+	var da ;			 		// Angular spin of particle, degrees per tick
+	var dw ;					// Rate of shrinkage of particle
+
+	//var elBurst ;				// <img> element for animated gif burst
+	var r ;						// Actual radius of current particle, including organic factor
+
+	var elBody = document.getElementById('thebody') ;
+	console.log('== start particles ==') ;
+	// Create particles
+	for(var i = 0; i < p; i++)
+	{
+		a = Math.round(i * (360 / p)) ; // CSS angles are measured in radians, remember...
+		a = a + randomInt(-1 * C_SDIST_ORG,C_SDIST_ORG) ;
+
+		r = rNom + Math.round( rNom * randomInt(0,(100 * C_BLSTRAD_ORG)) / 100 ) ;
+		
+		// Calculate x and y components of linear velocity
+		dx = Math.round( (r / C_SVELOC) * Math.cos(degToRad(a)) ) ;
+		dy = Math.round( (r / C_SVELOC) * Math.sin(degToRad(a)) ) ;
+
+		dw = Math.round(-1 * w / C_SVELOC) ;
+
+		// Assign angular velocity
+		da = randomInt(-1 * C_SDA,C_SDA) ;
+
+		console.log( 'Radius with organic factor: ' + r + 'dx: ' + dx + ',dy: ' + dy + 'da: ' + da + 'dw: ' + dw ) ;
+
+		el = document.createElement('img') ;
+		el.src = 'img/shard.gif' ;
+
+		el.className 		= 'shard' ;
+		
+		el.style.left 		= x + 'px' ;
+		el.style.top 		= y + 'px' ;
+		
+		// This should distort the image ...
+		el.style.height 	= '15px' ;
+		el.style.width		= '40px' ;
+		
+		el.style.webkitTransform = 'rotate('+a+'deg)' ;
+		el.style.transform 		 = 'rotate('+a+'deg)' ;
+
+		elBody.appendChild(el) ;
+
+		_SHARDREG.push({'el':el,
+						'x':x,'y':y,'w':w,
+						'a':a,
+						'dx':dx,'dy':dy,'dw':dw,
+						'da':da,'lc':0}) ;
+	}
+	console.log(' === done particles ====') ;
+}
+
+
+
+
+/*****************************************
+*
+* A U D I O    F U N C T I O N S
+*
+******************************************/
+
+function playAudio()
+{
+    if(C_DISAUDIO) return 0 ;
+
+    _AUDIO.play() ;
+}
+
+function pauseAudio()
+{
+    if(C_DISAUDIO) return 0 ;
+
+    _AUDIO.pause() ;
+}
+
+function playSfx(i)
+{
+	if(C_DISAUDIO) return 0 ;
+	
+	var startTime = C_SFX_DICT[i][0] ;
+	var pauseTime = C_SFX_DICT[i][1] ;
+
+	// Cue to start time, play if not already playing
+	_AUDIO.currentTime = startTime ;
+	if(_AUDIO.paused) _AUDIO.play() ;
+    
+    // Clear any pending pause timeouts
+    window.clearTimeout(_AUD_TIMEOUT) ;
+
+    // Set a new timeout to pause after this sound is done
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',pauseTime) ;
+}
+
+
+/*****************************************
+*
+* U T I L I T Y    F U N C T I O N S
+*
+******************************************/
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function degToRad(d)
+{
+	return (d / 360) * 2 * Math.PI ;
+}
+
+function fadeElementIn(el,dur,fnComplete,opacFinal)
+{
+    var opacTween = { opac: 0.0 } ;
+    if(!opacFinal) opacFinal = 1.0 ;
+    var eas = TWEEN.Easing.Quadratic.InOut ;
+
+    new TWEEN.Tween( opacTween )
+        .to( { opac:opacFinal }, dur )
+        .easing( eas )
+        .onComplete(fnComplete)
+        .onUpdate( function () {
+            el.style.opacity = opacTween.opac ;
+        }).start();
+}
+
+function fadeElementOut(el,dur,fnComplete,opacInit)
+{
+		if(!opacInit) opacInit = 1.0 ;
+		var opacTween = { opac: opacInit };
+		
+    var eas = TWEEN.Easing.Quadratic.InOut ;
+
+    new TWEEN.Tween( opacTween )
+        .to( { opac:0 }, dur )
+        .easing( eas )
+        .onComplete(fnComplete)
+        .onUpdate( function () {
+            el.style.opacity = opacTween.opac ;
+        }).start();
+}
+
+
+</script>
+<style>
+html,body{
+    background: black ;
+    width: 1024px ;
+    height: 768px ;
+}
+
+#lf{
+	font-size: 15px ;
+	font-family: tahoma, verdana, helvetica, arial, sans-serif ;
+	color: black ;
+	background: white ;
+	border: 3px solid black ;
+	text-align: center ;
+	position: absolute ;
+	left: 820px ;
+	top: 5px ;
+	width: 150px ;
+	height: 30px ;
+	z-index: 20000 ;
+}
+
+#revolver-bbl
+{
+	position: absolute ;
+	width: 120px ;
+	height: 120px ;
+	background: url('img/barrels.png') ;
+	left: 452px ;
+	top: 15px ;
+
+	z-index: 20000 ;
+
+	-webkit-transition-timing-function: ease-in-out ;
+	-webkit-transition: -webkit-transform 1s;
+}
+
+.bullet-side{
+	position: absolute ;
+	top: 100px ;
+	left: 400px ;
+	z-index: 19500 ;
+
+	-webkit-transition: all 2s ease-in ;
+	/*
+	-webkit-transition-timing-function: ease-in ;
+	-webkit-transition-duration: 2s ;
+	-webkit-transition-property: left ;
+	-webkit-transition-property: top ;
+	-webkit-transition-property: webkit-transform ;
+	*/
+}
+
+#title-tapstart-region{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 700 ;
+}
+
+#title-lettr-title{
+	position: absolute ;
+	z-index: 620 ;
+	width: 356px ;
+	height: 110px ;
+	left: 334px ;
+	top: 300px ;
+	background: url('img/lettr-title.png') ;
+}
+
+#title-lettr-tapstart{
+	position: absolute ;
+	z-index: 620 ;
+	width: 324px ;
+	height: 30px ;
+	left: 350px ;
+	top: 420px ;
+	background: url('img/lettr-tapstart.gif') ;
+	opacity: 0.51 ;
+}
+
+#title-bg-black{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 600 ;
+	background: #000 ;
+}
+
+#title-bg-mandala{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 500 ;
+	background: url('img/bg-mandala.jpg') ;
+	background-position: center ;
+}
+
+#dlog-start{
+	position: absolute ;
+	width: 542px ;
+	height: 322px ;
+	left: 241px ;
+	top: 223px ;
+	background: url('img/dlog-bg.png') ;
+	z-index: 620 ;
+	opacity: 0 ;
+}
+
+#dlog-end{
+	position: absolute ;
+	width: 542px ;
+	height: 322px ;
+	left: 241px ;
+	top: 223px ;
+	background: url('img/dlog-bg.png') ;
+	z-index: 620 ;
+	opacity: 0 ;
+}
+
+#mandala-container{
+    position: absolute ;
+    width: 1024px ;
+    height: 768px ;
+    overflow: hidden ;
+}
+
+#bubble-container{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		z-index: 1000 ;
+}
+
+#scan-lines{
+ 		width: 1024px ;
+ 		height: 768px ;
+ 		position: absolute ;
+		z-index: 995 ;
+		background: url('img/scan-lines.png') no-repeat ;
+		opacity: 0.05 ;
+		display: none ;
+}
+
+#mandala-1, #mandala-2, #mandala-3{
+    position: absolute ;
+    width: 1024px; /* double size */
+    height: 768px ; /* double size */
+}
+
+.bg-layer{
+	background-position: center ;
+	position: absolute ;
+	opacity: 1.0 ;
+	width: 1024px ;
+	height: 768px ;
+}
+
+.shard{
+	/*-webkit-transition-property: left, top, opacity, width ; */
+	/* -webkit-transition-duration: 500ms ; */
+	/* ease | linear | ease-in | ease-out | ease-in-out */
+	/* -webkit-transition-timing-function: ease-out ; */
+	display: block ;
+	position: absolute ;
+	z-index: 3000 ;
+	opacity: 0.6 ;
+}
+
+#bn-start
+{
+	display: block ;
+	position: absolute ;
+	z-index: 15500 ;
+	width: 300px ;
+	height: 100px ;
+	left: 300px ;
+	top: 100px ;
+	border: 2px solid white ;
+	color: white ;
+	font-size: 20px ;
+	text-align: center ;
+}
+</style>
+</head>
+
+<body id="thebody" style="margin:0; padding:0; overflow: hidden">
+	<a id="bn-start" href="javascript:main()">START</a>
+
+	<a id="bn-hide"
+	   style="position: absolute; z-index: 15500; width: 100px; height: 100px"
+	   href="javascript:hideBN()"></a>
+
+	<script>
+		function hideBN()
+		{
+			document.getElementById('build-number').style.display = 'none' ;
+			document.getElementById('bn-hide').style.display = 'none' ;
+		}
+	</script>
+	<iframe id="build-number"
+	        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
+	        src="build.txt"></iframe>
+	<div id="lf">H:xx | M:xx | L: 3</div>
+
+	<div id="revolver-bbl"></div>
+
+	<audio id="snd-sprite" preload="auto">
+		<source src="snd/sound-sprite-proto.wav">
+	</audio>
+
+	<div id="bubble-container"></div>
+
+	<div id="mandala-container">
+		<canvas width="512" height="384" id="mandala-0" style="z-index: 100"></canvas>
+		<canvas width="512" height="384" id="mandala-1" style="z-index: 90"></canvas>
+		<canvas width="512" height="384" id="mandala-2" style="z-index: 80"></canvas>
+	</div>
+	
+	<!-- these layers "peel away" as colours change -->
+	<div class="bg-layer" id="bg-0" style="z-index: 70; background:url('img/bg-red.png')"></div>
+	<div class="bg-layer" id="bg-1" style="z-index: 60; background:url('img/bg-org.png')"></div>
+	<div class="bg-layer" id="bg-2" style="z-index: 50; background:url('img/bg-yel.png')"></div>
+	<div class="bg-layer" id="bg-3" style="z-index: 40; background:url('img/bg-grn.png')"></div>
+	<div class="bg-layer" id="bg-4" style="z-index: 30; background:url('img/bg-blu.png')"></div>
+	<div class="bg-layer" id="bg-5" style="z-index: 20; background:url('img/bg-ind.png')"></div>
+	<div class="bg-layer" id="bg-6" style="z-index: 10; background:url('img/bg-vio.png')"></div>
+</body>
