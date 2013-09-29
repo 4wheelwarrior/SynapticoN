@@ -190,13 +190,14 @@ function initSgGen()
 // Replaces javascript setInterval()'s .
 // Cleaner and more controllable this way.
 // Eliminates a bunch of constants for loop intervals. Etc. etc.
+var _TTINT = 300 ;
 function mainLoop()
 {
 	if(!(_LC % 100)) 	processHMQ() ;
 
 	if(!(_LC % 250)) 	updateShardReg() ;
 	
-	if(!(_LC % 300)) 	tweenTicker() ;
+	if(!(_LC % _TTINT )) 	tweenTicker() ;
 
 	if(!(_LC % 500)) 	updateBubReg() ;
 
@@ -318,7 +319,10 @@ function updateShardReg()
 {
 	var srEnt ;
 
-	if(!_SHARDREG.length) return ;
+	if(!_SHARDREG.length) { _TTINT = 300 ; return ; }
+
+	// Slow down tween ticker while updating shards ...
+	_TTINT = 1500 ;
 
 	for(var i = 0; i < _SHARDREG.length; i++)
 	{
