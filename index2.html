@@ -325,10 +325,7 @@ function updateShardReg()
 	_TTINT = 1500 ;
 
 	// Hide shards, re-position them, then re-display ...
-	for(var i = 0; i < _SHARDREG.length; i++)
-	{
-		_SHARDREG[i].el.style.display = 'none' ;
-	}
+	document.getElementById('shard-container').style.display = 'none' ;
 
 	for(var i = 0; i < _SHARDREG.length; i++)
 	{
@@ -369,10 +366,7 @@ function updateShardReg()
 	}
 
 	// Show shards again
-	for(var i = 0; i < _SHARDREG.length; i++)
-	{
-		_SHARDREG[i].el.style.display = 'block' ;
-	}
+	document.getElementById('shard-container').style.display = 'block' ;
 }
 
 function tweenTicker()
@@ -916,7 +910,7 @@ function explode(x,y,rNom,p)
 	//var elBurst ;				// <img> element for animated gif burst
 	var r ;						// Actual radius of current particle, including organic factor
 
-	var elBody = document.getElementById('thebody') ;
+	var elSC = document.getElementById('shard-container') ;
 	console.log('== start particles ==') ;
 	// Create particles
 	for(var i = 0; i < p; i++)
@@ -952,7 +946,7 @@ function explode(x,y,rNom,p)
 		el.style.webkitTransform = 'rotate('+a+'deg)' ;
 		el.style.transform 		 = 'rotate('+a+'deg)' ;
 
-		elBody.appendChild(el) ;
+		elSC.appendChild(el) ;
 
 		_SHARDREG.push({'el':el,
 						'x':x,'y':y,'w':w,
@@ -1188,6 +1182,13 @@ html,body{
 		z-index: 1000 ;
 }
 
+#shard-container{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		z-index: 1100 ;
+}
+
 #scan-lines{
  		width: 1024px ;
  		height: 768px ;
@@ -1266,6 +1267,8 @@ html,body{
 	</audio>
 
 	<div id="bubble-container"></div>
+
+	<div id="shard-container"></div>
 
 	<div id="mandala-container">
 		<canvas width="512" height="384" id="mandala-0" style="z-index: 100"></canvas>
