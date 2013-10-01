@@ -110,7 +110,7 @@ var C_LOOP_DICT 	= [0,3,6,9,12,15,18] ;
 // Start times and durations of all other sound effects
 // Used by playSfx() function to cue and then pause after a delay
 // In order, these are: 0:burst, 1:gun cock, 2:gun fire, 3:life up, 4:life down, 5:game over
-var C_SFX_DICT		= [[21,1200],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] ;
+var C_SFX_DICT		= [[21,1800],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] ;
 
 /*
 Block comment here ... yakkity yak
@@ -260,6 +260,12 @@ function processHMQ()
 	// Wait until current HMQ entry is processed
 	// i.e. done animating, until proceeding
 	if(_HMQ_TIMER > 0) return false ;
+
+	// If hit accumulator has reached zero, trigger death sequence
+	if(_HIT_ACC <= 0){ deathSequence() ; return 0 }
+
+	// If hit accumulator has reached 10, trigger 'fire-at-synapticon' sequence
+	if(_HIT_ACC <= 0){ playSfx(3) ; emptyBullets(); _HIT_ACC = 5; return 0 }
 
 	// If timer has run down, process the next entry ...
 	var ent = _HMQ.shift() ;
@@ -613,6 +619,9 @@ function tClearBullet()
 	<div id="shard-container"></div>
 
 	<div id="scan-lines"></div>
+
+	<div id="red-matte"></div>
+
 	<div id="mandala-container">
 		<canvas width="512" height="384" id="mandala-0" style="z-index: 100"></canvas>
 		<canvas width="512" height="384" id="mandala-1" style="z-index: 90"></canvas>
@@ -780,6 +789,16 @@ html,body{
 		background: url('img/scan-lines.png') no-repeat ;
 		opacity: 0.05 ;
 		display: none ;
+}
+
+#red-matte{
+	width: 1024px ;
+	height: 768px ;
+	position: absolute ;
+	z-index: 20000 ;
+	display: none ;
+	opacity: 0 ;
+	background: url('img/red-matte.png') ;
 }
 
 #mandala-1, #mandala-2, #mandala-3{
@@ -1139,10 +1158,78 @@ function updateLFDisplay()
 	document.getElementById('lf').innerHTML = str ;
 }
 
+var _IFIRE ;
+var _FIRECOUNT = 0 ;
+var _RMOPAC = 0 ;
+function deathSequence()
+{
+	// Halt tween ticker, bubble spawner, audio looper, and hit/miss queue
+	window.clearInterval(_ITWN) ;
+	window.clearInterval(_IBSP) ;
+	window.clearInterval(_ILPP) ;
+	window.clearInterval(_IHMQ) ;
+	window.clearInterval(_IUBR) ;
+
+	// Make bloody red matte 'visible' (although its opacity is zero here...)
+	document.getElementById('red-matte').style.display = 'block' ;
+	//document.getElementById('red-matte').style.opacity = 0 ;
+
+	// Fire 5 bullets at ~1s intervals
+	_IFIRE = window.setInterval('fireBullet()',1200) ;
+}
+
+// Fires a bullet, adds a bullet hole
+function fireBullet()
+{
+	// Continue processing shard reg ...
+	if(_SHARDREG.length) return 0 ;
+
+	if(_FIRECOUNT >= 5)
+	{
+		window.clearInterval(_IFIRE) ;
+		gameOver() ;
+		return 0 ;
+	}
+
+	playSfx(2) ;
+
+	var el = document.createElement('div') ;
+
+	el.style.position = 'absolute' ;
+
+	el.style.width = '300px' ;
+	el.style.height = '300px' ;
+
+	el.style.border = '0px' ;
+
+	/*
+	el.style.backgroundPosition = 'center' ;
+	el.style.backgroundAttachment = 'fixed' ;
+	el.style.backgroundRepeat = 'no-repeat' ;
+	el.style.backgroundImage = "url('img/bullet-hole-" + randomInt(1,4) + ".png')";
+	*/
+
+	el.style.background = "url('img/bullet-hole-" + randomInt(1,4) + ".png') no-repeat";
+	//el.style.backgroundPosition = 'center' ;
+	//el.style.backgroundAttachment = 'fixed' ;
+
+	el.style.zIndex = 15500 ;
+	el.style.left = randomInt(50,800) + 'px' ;
+	el.style.top = randomInt(50,500) + 'px' ;
+	el.style.webkitTransform = 'rotate(' + randomInt(0,360) + 'deg)' ;
+
+	document.getElementById('thebody').appendChild(el) ;
+
+	_RMOPAC += 15 ;
+	document.getElementById('red-matte').style.opacity = _RMOPAC/100 ;
+
+	_FIRECOUNT++ ;
+}
+
 function gameOver()
 {
 	alert('game over!') ;
-	window.location.href = "index.html" ;
+	window.setTimeout(function(){window.location.href = "index.html" ;},5000) ;
 }
 
 
@@ -1182,21 +1269,7 @@ function updateBubReg()
 
 // x,y coordinates for center of explosion
 function popBub(i)
-{
-	// If hit accumulator has reached a threshold, act appropriately
-	if(_HIT_ACC == 0)
-	{
-		playSfx(2) ;
-		gameOver() ;
-	}
-		
-	if(_HIT_ACC == 10)
-	{
-		playSfx(3) ;
-		emptyBullets() ; // this will likely fuck up timing, but its temporary
-		_HIT_ACC == 5 ;
-	}
-	
+{	
 	var cnv ;
 
 	//var x,y ;
@@ -1475,6 +1548,9 @@ function bubClick(e)
 	
 	// Trigger a hit
 	_HMQ.push('H') ;
+
+	// Register hit (for total score at end)
+	_BUB_HIT++ ;
 }
 
 function nextBg()
