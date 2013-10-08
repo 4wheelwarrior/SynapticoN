@@ -21,7 +21,11 @@
 		//var _SHARDREG = [[elCnv, elCtx, t, cx, cy, [a, r], [a, r], [a, r]] ,     ] ;
 		
 		var _SHARDREG = [] ;
-		var C_SHARDPAD = 10 ;
+
+		var C_SDIST_ORG				= 30 ; 		// Shard distribution "organic" factor (+/- this many degrees)
+		var C_BLSTRAD_ORG			= 30 ; 		// Shard "blast radius" organic factor (percentage of nominal radius)
+		var C_SVELOC				= 20 ;		// Shard velocity expressed as # of ticks to full radius
+		var C_SHARDPAD 				= 10 ;		// Padding beyond nominal radius on shard canvases
 
 		var _elBody ;
 		var _elSc ;
@@ -77,8 +81,9 @@
 
 				aNom = (( 2 * Math.PI ) / p) * i ;
 				
-				a = aNom * ( randomInt(8,12) / 10 ) ; // Applies a +/- 30% 'organic' factor
-				r = rNom * ( randomInt(8,12) / 10 ) ; // Applies a +/- 30% 'organic' factor
+				// Apply +/- percentage according to organic factors
+				a = aNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_SDIST_ORG)) / 100 ) ;
+				r = rNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_BLSTRAD_ORG)) / 100 ) ;
 
 				shTmp.push(a) ;
 				shTmp.push(Math.round(r)) ;
@@ -103,7 +108,7 @@
 
 				cnv = srEnt[0] ;
 				
-				// If t has reached 100, remove canvas .. and _SHARDREG entry
+				// If t has reached 100 (or passed it), remove canvas .. and _SHARDREG entry
 				if(srEnt[2] >= 100)
 				{
 					_SHARDREG.splice(i,1) ;
@@ -117,7 +122,6 @@
 		{
 			if(!_SHARDREG.length) return 0 ;
 
-			var elSc = document.getElementById('shard-container') ;
 			var srEnt ;
 			var cnv ;
 			var ctx ;
@@ -127,7 +131,7 @@
 			var r ;
 
 			// Hide shards
-			elSc.style.display = 'none' ;
+			_elSc.style.display = 'none' ;
 
 			// Redraw canvases
 			for(var i = 0; i < _SHARDREG.length; i++)
@@ -142,7 +146,7 @@
 				//ctx.clearRect(0,0,cnv.width,cnv.height) ;
 				cnv.width = cnv.width ;
 
-				srEnt[2] = srEnt[2] + 20 ;
+				srEnt[2] = srEnt[2] + C_SVELOC ;
 				t = srEnt[2] ;
 
 				// All entries from index 5 onwards are the individual shards
@@ -163,7 +167,7 @@
 				}
 			}
 
-			window.setTimeout(function(){elSc.style.display = 'block'}, 100) ;
+			window.setTimeout(function(){_elSc.style.display = 'block'}, 100) ;
 			//elSc.style.display = 'block' ;
 		}
 
