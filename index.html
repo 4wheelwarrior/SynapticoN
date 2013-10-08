@@ -13,7 +13,7 @@ A few random notes ...
 - Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
 */
 var C_DISAUDIO				= false ;
-var C_TAPEVENT				= 'touchstart' // 'touchstart' or 'click' for iPad or Desktop...
+var C_TAPEVENT				= 'touchstart' 	// 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
@@ -84,6 +84,7 @@ var C_UBR_INT				= 500 ;		// ms between calls of updateBubReg()
 var C_UBD_INT				= 2000 ;    // ms between calls of updateBubDyn()
 
 var C_USR_INT				= 250 ;   	// ms between calls of updateShardReg()
+var C_SGC_INT				= 2000 ;	// ms between calls of shardRegGC()
 var C_SBB_INT				= 1000 ;	// ms between calls to spawnBubble()
 										// TODO: lock this to soundtrack instead
 
@@ -98,10 +99,11 @@ var C_PHI 					= ( 1 + Math.sqrt(5) ) / 2 ;
 // into two arcs, their lengths being PHI in proportion...
 var C_DA 					= 2.39982772 ;
 
-var C_SDIST_ORG				= 10 ; 		// Shard distribution "organic" factor (+/- this many degrees)
-var C_BLSTRAD_ORG			= 0.3 ; 	// Shard "blast radius" organic factor (percentage of nominal radius)
-var C_SVELOC				= 5 ;		// Shard velocity expressed as # of ticks to full radius
-var C_SDA					= 30 ;		// Shard angular velocity. Random selection within +/- this value
+var C_SDIST_ORG				= 30 ; 		// Shard distribution "organic" factor (+/- this many degrees)
+var C_BLSTRAD_ORG			= 30 ; 		// Shard "blast radius" organic factor (percentage of nominal radius)
+var C_SVELOC				= 20 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SHARDPAD 				= 10 ;
+
 
 // Starting times of each audio loop
 // They're all the same length
@@ -129,6 +131,8 @@ var _ICDN ; // coundown sequence at beginning
 var _IMSP ; // mandala spawn interval
 var _ILPP ;	// audio loop
 var _IHMQ ; // process hit/miss queue
+var _IUSR ; // updateShardReg() ;
+var _ISGC ; // shardRegGC() ;
 
 // Screen resolution of device
 var _SCRWID				= 1024 ;
@@ -191,6 +195,8 @@ var _ILOOP ;			// Interval handling audio loop
 var _AUD_TIMEOUT ;		// Audio timeout counters (for re-pausing after a delay)
 
 var _PAUSESG = false ;	// Can be toggled to pause SG animations when doing visual FX overtop
+
+var _elSc ;				// Points to shard container for showing/hiding without doing getElById lookups
 
 function doAudioLoop()
 {
@@ -1296,8 +1302,10 @@ function popBub(i)
 
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
-	explode(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
-	
+	//explode(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
+	// TODO: transfer '2' into a constant (multiplier on radius to get shard radius)
+	spawnShardCanvas(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
+
 	// Does this get handled by GC?
 	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
 	//_BUBREG.splice(i,1) ;
@@ -1335,127 +1343,134 @@ function halt()
   endSequence1() ;
 }
 
-// Triggers an explosion at center point (x,y)
-// With average blast radius 'r' and particle count 'p'
-// More accurately, sets up and inserts particles (shards) for an explosion ...
-// updateShardReg() handles the animation of said particles.
-function explode(x,y,rNom,p)
+// Triggers an explosion at center point cx,cy (screen coordinates)
+// With average blast radius 'rNom' and particle count 'p'
+// updateShardReg() takes care of animating and rendering the particles
+function spawnShardCanvas(cx, cy, rNom, p)
 {
-	var el ;					// Current particle we're working on ...
-	var w = 40 ;				// Default particle width
+	var srTmp = [] ; // complete entry for _SHARDREG
+	var shTmp = [] ; // individual entries for shards (contained in each srTmp entry)
+
+	var elCnv ;
+	var elCtx ;
+
+	var aNom ;
+	var a ;			// Angle of each shard, as its being calculated (including 'organic factor' )
+
+	elCnv = document.createElement('canvas') ;
+
+	elCnv.width 			= 2 * ( rNom + C_SHARDPAD ) ;
+	elCnv.height 			= 2 * ( rNom + C_SHARDPAD ) ;
+
+	elCnv.style.position 	= 'absolute' ;
+
+	elCnv.style.left 		= ( cx - rNom - C_SHARDPAD ) + 'px' ;
+	elCnv.style.top 		= ( cy - rNom - C_SHARDPAD ) + 'px' ;
+	elCnv.style.zIndex		= 200 ;
+
+	elCtx = elCnv.getContext('2d') ;
+
+	srTmp.push(elCnv) ;
+	srTmp.push(elCtx) ;
+	srTmp.push(0) ; // 't' value, initialize to zero ... runs up to 100, indicating 100% complete animation
+
+	srTmp.push(cx) ;
+	srTmp.push(cy) ;
+
 	
-	var dx, dy ;				// dX and dY values calculated for particle
-								// from blast radius 'r' and particle velocity
-	
-	var da ;			 		// Angular spin of particle, degrees per tick
-	var dw ;					// Rate of shrinkage of particle
-
-	//var elBurst ;				// <img> element for animated gif burst
-	var r ;						// Actual radius of current particle, including organic factor
-
-	var elCtr = document.getElementById('shard-container') ;
-
-	console.log('== start particles ==') ;
-	// Create particles
+	// Now calculate starting positions and trajectories of particles
 	for(var i = 0; i < p; i++)
 	{
-		a = Math.round(i * (360 / p)) ; // CSS angles are measured in radians, remember...
-		a = a + randomInt(-1 * C_SDIST_ORG,C_SDIST_ORG) ;
+		shTmp = [] ;
 
-		r = rNom + Math.round( rNom * randomInt(0,(100 * C_BLSTRAD_ORG)) / 100 ) ;
+		aNom = (( 2 * Math.PI ) / p) * i ;
 		
-		// Calculate x and y components of linear velocity
-		dx = Math.round( (r / C_SVELOC) * Math.cos(degToRad(a)) ) ;
-		dy = Math.round( (r / C_SVELOC) * Math.sin(degToRad(a)) ) ;
+		// Apply +/- percentage according to organic factors
+		a = aNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_SDIST_ORG)) / 100 ) ;
+		r = rNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_BLSTRAD_ORG)) / 100 ) ;
 
-		dw = Math.round(-1 * w / C_SVELOC) ;
-
-		// Assign angular velocity
-		da = randomInt(-1 * C_SDA,C_SDA) ;
-
-		console.log( 'Radius with organic factor: ' + r + 'dx: ' + dx + ',dy: ' + dy + 'da: ' + da + 'dw: ' + dw ) ;
-
-		el = document.createElement('img') ;
-		el.src = 'img/shard.gif' ;
-
-		el.className 		= 'shard' ;
+		shTmp.push(a) ;
+		shTmp.push(Math.round(r)) ;
 		
-		el.style.left 		= x + 'px' ;
-		el.style.top 		= y + 'px' ;
-		
-		// This should distort the image ...
-		el.style.height 	= '15px' ;
-		el.style.width		= '40px' ;
-		
-		el.style.webkitTransform = 'rotate('+a+'deg)' ;
-		el.style.transform 		 = 'rotate('+a+'deg)' ;
-
-		elCtr.appendChild(el) ;
-
-		_SHARDREG.push({'el':el,
-						'x':x,'y':y,'w':w,
-						'a':a,
-						'dx':dx,'dy':dy,'dw':dw,
-						'da':da,'lc':0}) ;
+		srTmp.push(shTmp) ;
 	}
-	console.log(' === done particles ====') ;
+	
+	_SHARDREG.push(srTmp) ;
+	_elSc.appendChild(srTmp[0]) ;
 }
 
 function updateShardReg()
 {
+	if(!_SHARDREG.length) return 0 ;
+
 	var srEnt ;
+	var cnv ;
+	var ctx ;
+	var rCur ;
+	var x,y ; // xy position of particle being redrawn (calculated from rCur, a, and cnv center)
+	var t ;
+	var r ;
 
-	// Return tween ticker to normal when _SHARDREG is empty
-	if(!_SHARDREG.length) { C_TTICK_INT = 333 ; return ; }
+	// Hide shards
+	_elSc.style.display = 'none' ;
 
-	// Slow down tween ticker (which is only updating SG)
-	// While shards are moving ...
-	C_TTICK_INT = 1000 ;
-
-	document.getElementById('shard-container').style.display = 'none' ;
-
+	// Redraw canvases
 	for(var i = 0; i < _SHARDREG.length; i++)
 	{
 		// Loop up from array only once ...
 		// Should get stored as reference to array element
 		srEnt = _SHARDREG[i] ;
+		cnv = srEnt[0] ;
+		ctx = srEnt[1] ;
 
-		// Apply movement to shard, update coordinates
-		srEnt.x = srEnt.x + srEnt.dx ;
-		srEnt.y = srEnt.y + srEnt.dy ;
-		srEnt.a = srEnt.a + srEnt.da ;
-		srEnt.w = srEnt.w + srEnt.dw ;
+		// Clear canvas for redrawing
+		//ctx.clearRect(0,0,cnv.width,cnv.height) ;
+		cnv.width = cnv.width ;
 
-		if(srEnt.w < 0) srEnt.w = 0 ;
+		srEnt[2] = srEnt[2] + C_SVELOC ;
+		t = srEnt[2] ;
 
-		srEnt.el.style.display = 'none' ;
-		srEnt.el.style.left = srEnt.x + 'px' ;
-		srEnt.el.style.top 	= srEnt.y + 'px' ;
-		srEnt.el.style.webkitTransform  = 'rotate('+srEnt.a+'deg)' ;
-		//srEnt.el.style.transform 		= 'rotate('+srEnt.a+'deg)' ;
-		srEnt.el.style.width = srEnt.w + 'px' ;
-		srEnt.el.style.display = 'block' ;
-
-		// Increment lifecycle counter
-		_SHARDREG[i].lc = _SHARDREG[i].lc + 1 ;
-
-		// Check "lifecycle counter". Since C_SVELOC is expressed
-		// as "# of ticks until full radius", it can also be used
-		// as a yardstick to determine when shard has reached its outer limit
-		if(_SHARDREG[i].lc > C_SVELOC)
+		// All entries from index 5 onwards are the individual shards
+		for(var j = 5; j < srEnt.length; j++)
 		{
-			console.log('Shard at outer limit, removing it...') ;
+			// t (scaled to 0-1.0) * r * cos(a) ... / ... sin(a)
+			x = Math.round(srEnt[0].width / 2) + ((t / 100) * srEnt[j][1] * Math.cos(srEnt[j][0])) ;
 			
-			// Remove DOM node and entry from _SHARDREG...
-			_SHARDREG[i].el.parentElement.removeChild(_SHARDREG[i].el)
-			_SHARDREG.splice(i,1) ;
+			// width/height are same
+			y = Math.round(srEnt[0].width / 2 ) + ((t / 100) * srEnt[j][1] * Math.sin(srEnt[j][0])) ;
+			
+			x = Math.round(x) ;
+			y = Math.round(y) ;
+
+			// Redraw shard, with a random number of edges
+			// ... morphs as it blasts outwards
+			drawShard(ctx, x, y, randomInt(3,8)) ;
 		}
 	}
 
-	// Re-show particles after a short delay, causing a flashing effect
-	window.setTimeout(function(){
-		document.getElementById('shard-container').style.display = 'block' ;
-	},50) ;
+	window.setTimeout(function(){_elSc.style.display = 'block'}, 100) ;
+	//elSc.style.display = 'block' ;
+}
+
+function shardRegGC()
+{
+	var srEnt ;
+	var cnv ;
+
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		srEnt = _SHARDREG[i] ;
+
+		cnv = srEnt[0] ;
+		
+		// If t has reached 100 (or passed it), remove canvas .. and _SHARDREG entry
+		if(srEnt[2] >= 100)
+		{
+			_SHARDREG.splice(i,1) ;
+			cnv.parentNode.removeChild(cnv) ;
+			continue ;
+		}
+	}
 }
 
 
@@ -1494,6 +1509,33 @@ function drawBubbleCnv(r, e)
 	else drawPoly(ctx, rScaled, rScaled, rScaled, e) ;
 
 	return cnv ;
+}
+
+// s = side count (for polygon)
+function drawShard(ctx, x,y,s)
+{
+	var pts = getPolyPts(x, y, 6, s, 0) ; // leave r and aOffset fixed, for now
+	var x,y ;
+
+	x = pts[0][0] ;
+	y = pts[0][1] ;
+
+	ctx.moveTo(x,y) ;
+
+	for(var i = 1; i < pts.length; i++)
+	{
+		x = pts[i][0] ;
+		y = pts[i][1] ;
+
+		ctx.lineTo(x, y) ;
+	}
+
+	ctx.closePath() ;
+
+	ctx.fillStyle = '#FFF' ;
+	ctx.fill() ;
+	//ctx.strokeStyle = '#fff' ;
+	//ctx.stroke() ;
 }
 
 // Renders a numeric value into a grouping of digit <img>'s
@@ -1727,8 +1769,8 @@ function getRoundedPoint(x1, y1, x2, y2, radius, first) {
 **************************************************/
 function titleSequence1()
 {
-	window.location.href = 'xplosion-canvas.html' ;
-	return ;
+	//window.location.href = 'xplosion-canvas.html' ;
+	//return ;
 	
 	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
@@ -1848,12 +1890,16 @@ function launchSequence5()
 // Final step ... draw the canvases, set the tickers... and pull the curtain
 function launchSequence6()
 {
+    // Grab reference to shard-container element
+    _elSc = document.getElementById('shard-container') ;
+
     // Fire up tickers needed for game ...
     _ISWC = window.setInterval('nextBg()',60000) ;
     _IBSP = window.setInterval('spawnBubble()',C_SBB_INT) ;
 	_IUBR = window.setInterval('updateBubReg()',C_UBR_INT) ;
 	//_IUBD = window.setInterval('updateBubDyn()',C_UBD_INT) ;
 	_IUSR = window.setInterval('updateShardReg()',C_USR_INT) ;
+	_ISGC = window.setInterval('shardRegGC()',C_SGC_INT) ;
 	_IHMQ = window.setInterval('processHMQ()',C_HMQ_INT) ;
 
 	// Start SG generator
