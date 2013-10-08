@@ -16,6 +16,7 @@ var C_DISAUDIO				= false ;
 var C_TAPEVENT				= 'touchstart' 	// 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
+var C_TTICK_INT_SLOW		= 1000 ;	// Tween ticker interval (in slow mode - msec)
 var C_SEGS 					= 6 ;		// Intrinsic to FOL design. This will ALWAYS be 6...
 var C_RBMIN					= 20 ;		// Min value of base radius (native canvas size)
 var C_RBMAX					= 40 ;		// Max value of base radius (display size will be 2x this)
@@ -252,6 +253,23 @@ var _ABBL = 0 ;
 var _DABBL = 72 ; // 72deg is increment
 
 var _ICLR ; // Interval to clear bullets
+
+var _TTICK_ISSLOW = false ;
+
+function ttickReg()
+{
+	window.clearInterval(_ITWN) ;
+	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
+	_TTICK_ISSLOW = false ;
+}
+
+
+function ttickSlow()
+{
+	window.clearInterval(_ITWN) ;
+	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT_SLOW) ;
+	_TTICK_ISSLOW = true ;
+}
 
 // Called every 100ms to ensure quick response
 // Once bubble is popped
@@ -1357,6 +1375,10 @@ function spawnShardCanvas(cx, cy, rNom, p)
 	var aNom ;
 	var a ;			// Angle of each shard, as its being calculated (including 'organic factor' )
 
+	// If tween ticker isn't already in slow mode, slow it down
+	// It'll be reset next time updateShardReg is called and _SHARDREG is empty ...
+	if(!_TTICK_ISSLOW) ttickSlow() ;
+
 	elCnv = document.createElement('canvas') ;
 
 	elCnv.width 			= 2 * ( rNom + C_SHARDPAD ) ;
@@ -1454,6 +1476,15 @@ function updateShardReg()
 
 function shardRegGC()
 {
+	if(!_SHARDREG.length && !_TTICK_ISSLOW) return ;
+
+	// If shardreg is empty and tween ticker is on slow, reset it to regular
+	if(!_SHARDREG.length && _TTICK_ISSLOW)
+	{
+		ttickReg() ;
+		return ;
+	}
+
 	var srEnt ;
 	var cnv ;
 
