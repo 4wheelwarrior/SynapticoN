@@ -472,57 +472,9 @@ function emptyBullets()
 	var el ;
 	for(var i = 0; i < aChildren.length; i++)
 	{
-		console.log('Removing from chamber ...') ;
 		el = aChildren[i] ;
 		el.parentNode.removeChild(el) ;
 	}
-
-	// Spawn bullets, dump them on the ground!!
-	// CSS class SHOULD initialize position to off screen top ...
-	// Then setting new values SHOULD cause them to drop
-	var shellCount ;
-	if(_HIT_ACC > 5) shellCount = _HIT_ACC - 5 ;
-	if(_HIT_ACC < 5) shellCount = 5 - _HIT_ACC ;
-
-	for(var i = 0; i <= shellCount ; i++)
-	{
-		el = document.createElement('img') ;
-		el.className = 'bullet-side' ;
-		el.src = 'img/bullet-side.png' ;
-
-		// I suppose inserting the fuckin' thing into the DOM would be a good idea ...
-		document.getElementById('thebody').appendChild(el) ;
-	}
-
-	// After a short delay, setting new values sends em on the way.
-	window.setTimeout(function(){
-		var el ;
-		var bullets = document.getElementsByClassName('bullet-side') ;
-		
-		for(var j = 0; j < bullets.length; j++)
-		{
-			el = bullets[j] ;
-
-			el.style.left = randomInt(400,600) + 'px' ;
-			el.style.top = '400px' ;
-			el.style.webkitTransform = 'rotate(' + randomInt(0,720) + 'deg)' ;
-			el.style.opacity = 0 ;
-		}
-	},50) ;
-
-	// After 5s, remove shells from DOM
-	window.setTimeout(function(){
-		var bullets = document.getElementsByClassName('bullet-side') ;
-		for(var i = 0; i < bullets.length; i++)
-		{
-			bullets[i].parentNode.removeChild(bullets[i]) ;
-		}
-	},5000) ;
-
-
-	// Pause SG, give rotate and bullet fall animations 2s to run, then restart it
-	_PAUSESG = true ;
-	window.setTimeout(function(){_PAUSESG = false}, 2000) ;
 }
 
 function tClearBullet()
