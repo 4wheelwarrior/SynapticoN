@@ -1,0 +1,149 @@
+<html>
+<head>
+	<style>
+		#thebody{
+			
+			width: 1024px ;
+			height: 768px ;
+			background: url('img/bg-grn.png') ;
+			background-position: center ;
+		}
+
+		#sg-container{
+			position: absolute ;
+			width: 1024px ;
+			height: 768px ;
+			z-index: 100 ;
+		}
+	</style>
+	<script language="javascript">
+
+		var _cnv ;
+		var _ctx ;
+		var _cnt ;
+
+		var _dqBusy = false ;
+
+		var C_SEGS = 6 ;
+
+		// "Draw Queue" ... no blizzards here
+		// Each entry is a set of parameters for drawCell() ;
+		// [[cx, cy, r, o], [cx, cy, r, o], ... ]
+		var _DQ = [] ;
+		var _i = 0 ;
+
+		var C_DA = 2.39982772 ;
+		var C_PHI = ( 1 + Math.sqrt(5) ) / 2 ;
+
+		function main()
+		{
+			_cnv = document.getElementById('sg-container') ;
+			_ctx = _cnv.getContext('2d') ;
+			_cnt = 0 ;
+
+			document.getElementById('thebody').addEventListener('touchstart',doReload,false) ;
+
+			var rBase = randomInt(10,40) ;
+			var aOff = 2 * Math.PI / randomInt(1,7) ;
+
+			for(var i = 0; i < 5; i++)
+			{
+				// No point in drawing the entire thing if ya can't see it!!
+				if(i < 3)
+					drawFol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+				else
+					drawSol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+
+				//drawFol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+			}
+
+			window.setInterval('drawAnim()',10) ;
+		}
+
+		function doReload()
+		{
+			window.location.href = 'sg-canvas.html' ;
+		}
+
+		function drawAnim()
+		{
+			if(!_DQ.length) return ;
+			if(_i > _DQ.length - 1) return ;
+
+			// If we've painted enough coats, move onto the next cell in the queue...
+			//if(_cnt >= 5){ _cnt = 0; _i++ }
+
+			drawCell(_DQ[_i][0], _DQ[_i][1], _DQ[_i][2], 0.2) ;
+			//_cnt++ ;
+			_i++ ;
+		}
+
+		function drawFol(cx, cy, r, ao){
+		    var a ;
+		    var x ;
+		    var y ;
+
+		    drawSol(cx, cy, r, ao) ;
+
+		    for(var i = 0; i < C_SEGS; i++){
+		        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
+		        x = Math.round(cx + 2 * r * Math.cos(a)) ;
+		        y = Math.round(cy + 2 * r * Math.sin(a)) ;
+
+		        drawSol(x, y, r, a) ;
+		    }
+		}
+
+		function drawSol(cx, cy, r, ao){
+		    var a ;
+		    var x ;
+		    var y ;
+
+		    _DQ.push([cx, cy, r]) ;
+		    //drawCell(cx, cy, r) ;
+		    for(var i = 0; i < C_SEGS; i++){
+		        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
+		        x = Math.round(cx + r * Math.cos(a)) ;
+		        y = Math.round(cy + r * Math.sin(a)) ;
+		        _DQ.push([x, y, r]) ;
+		        //drawCell(x, y, r) ;
+		    }
+		}
+
+		function drawCell(cx, cy, r, o){
+		    var cR = 255 ;
+		    var cG = 255 ;
+		    var cB = 255 ;
+
+		    var rg = _ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+		    if(!o) o = 1.0 ;
+
+		    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+		    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+		    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+		    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+
+		    _ctx.beginPath() ;
+		    _ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+		    _ctx.fillStyle = rg ;
+		    _ctx.fill() ;
+		}
+
+		function randomInt(min, max)
+		{
+		    return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+
+		// Animates a mask to clear from center out ... come back to this
+		function clearCell()
+		{
+
+		}
+	</script>
+</head>
+<body id="thebody">
+	<canvas id="sg-container" width="512" height="384"></canvas>
+	<script>window.setTimeout('main()',300)</script>
+</body>
+</html>
