@@ -35,11 +35,13 @@
 		var C_DA = 2.39982772 ;
 		var C_PHI = ( 1 + Math.sqrt(5) ) / 2 ;
 
+		var C_CRAD_ORG = 0 ; // +/- % variance in SG pattern
+
 		function main()
 		{
 			_cnv = document.getElementById('sg-container') ;
 			_ctx = _cnv.getContext('2d') ;
-			_cnt = 0 ;
+			_cnt = 20 ;
 
 			document.getElementById('thebody').addEventListener('touchstart',doReload,false) ;
 
@@ -57,7 +59,11 @@
 				//drawFol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 			}
 
-			window.setInterval('drawAnim()',10) ;
+			//window.setInterval('drawAnim()',10) ;
+			//window.setInterval('drawFaded()',30) ;
+			window.setInterval('drawRandom()',10) ;
+
+			//window.setTimeout(function(){window.setInterval('drawFaded()',30)},2000) ;
 		}
 
 		function doReload()
@@ -76,6 +82,48 @@
 			drawCell(_DQ[_i][0], _DQ[_i][1], _DQ[_i][2], 0.2) ;
 			//_cnt++ ;
 			_i++ ;
+		}
+
+		var iDF = 0 ;
+		var C_DFWIN_SIZE = 8 ;
+
+		function drawFaded()
+		{
+			var iMin = iDF ;
+			var iMax = iMin + C_DFWIN_SIZE ;
+
+			if(iMax >= _DQ.length) return ;
+
+			for(var i = iMin; i <= iMax; i++)
+			{
+				drawCell(_DQ[i][0], _DQ[i][1], _DQ[i][2], 0.1) ;
+			}
+
+			iDF += Math.round(C_DFWIN_SIZE / 2) ;
+		}
+
+		var iDR = 0 ;
+		var C_DRWIN_SIZE = 8 ;
+		var rCount = 0 ;
+		var C_RC_MAX = 5 ; // # of random plots to make before incrementing iDR
+		function drawRandom()
+		{
+			var iMin = iDR  ;
+			var iMax = iMin + C_DRWIN_SIZE ;
+
+			console.log('iMin/iMax: '+iMin+'/'+iMax)
+
+			if(iMax >= _DQ.length) return ;
+
+			var i = randomInt(iMin, iMax) ;
+
+			drawCell(_DQ[i][0], _DQ[i][1], _DQ[i][2], 0.1) ;
+
+			rCount++ ;
+			if(rCount < C_RC_MAX) return ;
+
+			rCount = 0 ;
+			iDR += Math.round(C_DRWIN_SIZE / 2) ;
 		}
 
 		function drawFol(cx, cy, r, ao){
@@ -110,10 +158,13 @@
 		    }
 		}
 
-		function drawCell(cx, cy, r, o){
+		function drawCell(cx, cy, rNom, o){
 		    var cR = 255 ;
 		    var cG = 255 ;
 		    var cB = 255 ;
+
+		    var r = rNom * ( randomInt((100 - C_CRAD_ORG),(100 + C_CRAD_ORG)) / 100 ) ;
+		    r = Math.round(r) ;
 
 		    var rg = _ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
 
