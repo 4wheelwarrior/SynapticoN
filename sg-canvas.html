@@ -5,7 +5,7 @@
 			
 			width: 1024px ;
 			height: 768px ;
-			background: url('img/bg-grn.png') ;
+			background: url('img/bg-blu.png') ;
 			background-position: center ;
 		}
 
@@ -14,15 +14,15 @@
 			width: 1024px ;
 			height: 768px ;
 			z-index: 100 ;
+			-webkit-transition: opacity 5s;
+			-webkit-transform: translateZ(0) ;
 		}
 	</style>
+	<script language="javascript" src="tween.js"></script>
 	<script language="javascript">
 
 		var _cnv ;
 		var _ctx ;
-		var _cnt ;
-
-		var _dqBusy = false ;
 
 		var C_SEGS = 6 ;
 
@@ -30,40 +30,84 @@
 		// Each entry is a set of parameters for drawCell() ;
 		// [[cx, cy, r, o], [cx, cy, r, o], ... ]
 		var _DQ = [] ;
-		var _i = 0 ;
+		var _DQR = [] ;
+		var _iDQ = 0 ;
 
 		var C_DA = 2.39982772 ;
 		var C_PHI = ( 1 + Math.sqrt(5) ) / 2 ;
 
-		var C_CRAD_ORG = 0 ; // +/- % variance in SG pattern
+		var C_CRAD_ORG = 10 ; // +/- % variance in SG pattern
+
+		// TODO: make random factor increase with each draw
+		// ... like a 2nd derivative or something
+		var _CRAD_ORG = 0 ;
+		var C_CRAD_INC = 10 ;
+		var _CRAD_CLK = 0 ;
+
+		// 0 = clockwise, 1 = ccw. Default draw order is clockwise (0)
+		var _dir = 0 ;
+
+		var _IDF ;
 
 		function main()
 		{
 			_cnv = document.getElementById('sg-container') ;
 			_ctx = _cnv.getContext('2d') ;
-			_cnt = 20 ;
 
-			document.getElementById('thebody').addEventListener('touchstart',doReload,false) ;
+			document.getElementById('thebody').addEventListener('click',doReload,false) ;
 
-			var rBase = randomInt(10,40) ;
+			doSGCycle() ;
+			window.setInterval('doSGCycle()',10000) ;
+			//window.setInterval('drawRandom()',10) ;
+
+			//window.setTimeout(function(){window.setInterval('drawRandom()',20)},2000) ;
+			//window.setTimeout('doFadeOut()',5000) ;
+		}
+
+		function doSGCycle()
+		{
+			var rBase = randomInt(10,30) ;
 			var aOff = 2 * Math.PI / randomInt(1,7) ;
+			//var aOff = 0 ;
 
-			for(var i = 0; i < 5; i++)
+			var cx = 512 / 2 ;
+			var cy = 384 / 2 ;
+
+			// Simple randomization here, for now ...
+			// Gives an idea of what different variations look like
+			C_CRAD_ORG = randomInt(0,20) ;
+
+			clearSGCanvas() ;
+			_cnv.style.opacity = 1.0 ;
+
+			for(var i = 0; i < 3; i++)
 			{
 				// No point in drawing the entire thing if ya can't see it!!
-				if(i < 3)
-					drawFol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+				if(i < 4)
+					drawFol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 				else
-					drawSol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
-
-				//drawFol(200, 200, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+					drawSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 			}
 
-			//window.setInterval('drawAnim()',10) ;
-			//window.setInterval('drawFaded()',30) ;
-			window.setInterval('drawRandom()',10) ;
+			// If direction == 1 (counterclockwise), reverse draw queue
+			if(_dir)
+			{
+				console.log('Reversing draw queue') ;
+				for(var i = _DQ.length - 1 ; i > 0 ; i--) _DQR.push(_DQ[i]) ;
+				_DQ = _DQR ;
+			}
 
-			//window.setTimeout(function(){window.setInterval('drawFaded()',30)},2000) ;
+			// Start draw queue processor. Stopped when drawFaded() has no more elements
+			_IDF = window.setInterval('drawFaded()',100) ;
+
+			// Reverse direction for next cycle
+			if(_dir) 	_dir = 0 ;
+			if(!_dir) 	_dir = 1 ;
+		}
+
+		function clearSGCanvas()
+		{
+			_ctx.clearRect(0,0,512,384) ;
 		}
 
 		function doReload()
@@ -71,35 +115,48 @@
 			window.location.href = 'sg-canvas.html' ;
 		}
 
+		function doFadeOut()
+		{
+			_cnv.style.opacity = 0 ;
+		}
+
 		function drawAnim()
 		{
 			if(!_DQ.length) return ;
-			if(_i > _DQ.length - 1) return ;
+			if(_iDQ > _DQ.length - 1) return ;
 
 			// If we've painted enough coats, move onto the next cell in the queue...
-			//if(_cnt >= 5){ _cnt = 0; _i++ }
+			//if(_cnt >= 5){ _cnt = 0; _iDQ++ }
 
-			drawCell(_DQ[_i][0], _DQ[_i][1], _DQ[_i][2], 0.2) ;
+			drawCell(_DQ[_iDQ][0], _DQ[_iDQ][1], _DQ[_iDQ][2], 0.1) ;
 			//_cnt++ ;
-			_i++ ;
+			_iDQ++ ;
 		}
 
-		var iDF = 0 ;
-		var C_DFWIN_SIZE = 8 ;
+		var _iDF = 0 ;
+		var C_DFWIN_SIZE = 12 ;
 
 		function drawFaded()
 		{
-			var iMin = iDF ;
+			var iMin = _iDF ;
 			var iMax = iMin + C_DFWIN_SIZE ;
 
-			if(iMax >= _DQ.length) return ;
+			if(iMax >= _DQ.length)
+			{
+				// Linger briefly, then fade
+				window.setTimeout('doFadeOut()',2000) ;
+				window.clearInterval(_IDF) ;
+				_iDF = 0 ;
+				return ;
+			}
 
 			for(var i = iMin; i <= iMax; i++)
 			{
-				drawCell(_DQ[i][0], _DQ[i][1], _DQ[i][2], 0.1) ;
+				//console.log('Painting faded at idx '+i) ;
+				drawCell(_DQ[i][0], _DQ[i][1], _DQ[i][2], 0.06) ;
 			}
 
-			iDF += Math.round(C_DFWIN_SIZE / 2) ;
+			_iDF += C_DFWIN_SIZE / 3 ;
 		}
 
 		var iDR = 0 ;
@@ -111,7 +168,7 @@
 			var iMin = iDR  ;
 			var iMax = iMin + C_DRWIN_SIZE ;
 
-			console.log('iMin/iMax: '+iMin+'/'+iMax)
+			//console.log('iMin/iMax: '+iMin+'/'+iMax)
 
 			if(iMax >= _DQ.length) return ;
 
