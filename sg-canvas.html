@@ -66,6 +66,8 @@
 
 		function doSGCycle()
 		{
+			_DQ = [] ;
+
 			var rBase = randomInt(10,30) ;
 			var aOff = 2 * Math.PI / randomInt(1,7) ;
 			//var aOff = 0 ;
@@ -89,20 +91,16 @@
 					drawSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 			}
 
-			// If direction == 1 (counterclockwise), reverse draw queue
-			if(_dir)
-			{
-				console.log('Reversing draw queue') ;
-				for(var i = _DQ.length - 1 ; i > 0 ; i--) _DQR.push(_DQ[i]) ;
-				_DQ = _DQR ;
-			}
-
+			//console.log('Starting draw sequence, DQ size is '+_DQ.length) ;
 			// Start draw queue processor. Stopped when drawFaded() has no more elements
 			_IDF = window.setInterval('drawFaded()',100) ;
 
 			// Reverse direction for next cycle
-			if(_dir) 	_dir = 0 ;
-			if(!_dir) 	_dir = 1 ;
+			
+			if(!_dir)
+				_dir = 1 ;
+			else
+				_dir = 0 ;
 		}
 
 		function clearSGCanvas()
@@ -140,11 +138,12 @@
 		{
 			var iMin = _iDF ;
 			var iMax = iMin + C_DFWIN_SIZE ;
+			var iLoc ;
 
 			if(iMax >= _DQ.length)
 			{
 				// Linger briefly, then fade
-				window.setTimeout('doFadeOut()',2000) ;
+				window.setTimeout('doFadeOut()',1200) ;
 				window.clearInterval(_IDF) ;
 				_iDF = 0 ;
 				return ;
@@ -152,8 +151,14 @@
 
 			for(var i = iMin; i <= iMax; i++)
 			{
-				//console.log('Painting faded at idx '+i) ;
-				drawCell(_DQ[i][0], _DQ[i][1], _DQ[i][2], 0.06) ;
+				// If direction == 1 (counterclockwise), reverse draw queue
+				if(_dir) iLoc = _DQ.length - i - 1 ;
+
+				// Otherwise, draw normally
+				if(!_dir) iLoc = i ;
+
+				//console.log('Painting faded at idx '+iLoc+'/'+i+'/'+_dir) ;
+				drawCell(_DQ[iLoc][0], _DQ[iLoc][1], _DQ[iLoc][2], 0.06) ;
 			}
 
 			_iDF += C_DFWIN_SIZE / 3 ;
@@ -205,13 +210,12 @@
 		    var y ;
 
 		    _DQ.push([cx, cy, r]) ;
-		    //drawCell(cx, cy, r) ;
+
 		    for(var i = 0; i < C_SEGS; i++){
 		        a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
 		        x = Math.round(cx + r * Math.cos(a)) ;
 		        y = Math.round(cy + r * Math.sin(a)) ;
 		        _DQ.push([x, y, r]) ;
-		        //drawCell(x, y, r) ;
 		    }
 		}
 

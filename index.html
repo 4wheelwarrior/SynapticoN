@@ -12,8 +12,8 @@ A few random notes ...
 
 - Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
 */
-var C_DISAUDIO				= false ;
-var C_TAPEVENT				= 'touchstart' 	// 'touchstart' or 'click' for iPad or Desktop...
+var C_DISAUDIO				= true ;
+var C_TAPEVENT				= 'click' 	// 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
 var C_TTICK_INT_SLOW		= 1000 ;	// Tween ticker interval (in slow mode - msec)
@@ -36,7 +36,7 @@ var C_MOPAC_MIN				= 0.0 ;		// Min/Max opacities of mandalas as they grow
 var C_MOPAC_MAX 			= [0.20,0.15,0.35,0.20,0.10,0.10,0.20] ;
 
 var C_MSCALE_DUR			= 12000 ;	// Duration of life and death cycle (total cycle is 2x)
-var C_MSPAWN_INT  			= 6000 ;	// Interval on which new mandalas are spawned
+var C_MSPAWN_INT  			= 10000 ;	// Interval on which new mandalas are spawned
 
 var C_BUB_SPAWNPROB			= 0.2 ;		// Probability of a spawn each time spawnBubble() called
 var C_BUB_MAX				= 6 ;		// Max # of bubbles on screen simultaneously
@@ -115,6 +115,8 @@ var C_LOOP_DICT 	= [0,3,6,9,12,15,18] ;
 // In order, these are: 0:burst, 1:gun cock, 2:gun fire, 3:life up, 4:life down, 5:game over
 var C_SFX_DICT		= [[21,1800],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] ;
 
+var _CRAD_ORG 		= 0 ; // +/- % variance in SG pattern
+
 /*
 Block comment here ... yakkity yak
 
@@ -134,6 +136,7 @@ var _ILPP ;	// audio loop
 var _IHMQ ; // process hit/miss queue
 var _IUSR ; // updateShardReg() ;
 var _ISGC ; // shardRegGC() ;
+var _IDRF ; // drawFaded() for SG rendering
 
 // Screen resolution of device
 var _SCRWID				= 1024 ;
@@ -198,6 +201,22 @@ var _AUD_TIMEOUT ;		// Audio timeout counters (for re-pausing after a delay)
 var _PAUSESG = false ;	// Can be toggled to pause SG animations when doing visual FX overtop
 
 var _elSc ;				// Points to shard container for showing/hiding without doing getElById lookups
+
+// "Draw Queue" ... populated by mandala drawing functions, then rendered
+// Each entry is a set of parameters for drawCell() ;
+// [[cx, cy, r, o], [cx, cy, r, o], ... ]
+var _DQ = [] ;
+
+// canvas and context for mandala canvas
+var _cnv ;
+var _ctx ;
+
+// Tracking index in draw queue for drawFaded() function
+var _iDF = 0 ;
+var C_DFWIN_SIZE = 12 ;
+
+// 0 = clockwise, 1 = ccw. Default draw order is clockwise (0)
+var _dir ;
 
 function doAudioLoop()
 {
@@ -600,8 +619,10 @@ function tClearBullet()
 
 	<div id="mandala-container">
 		<canvas width="512" height="384" id="mandala-0" style="z-index: 100"></canvas>
+		<!--
 		<canvas width="512" height="384" id="mandala-1" style="z-index: 90"></canvas>
 		<canvas width="512" height="384" id="mandala-2" style="z-index: 80"></canvas>
+	-->
 	</div>
 	
 	<!-- these layers "peel away" as colours change -->
@@ -777,10 +798,15 @@ html,body{
 	background: url('img/red-matte.png') ;
 }
 
-#mandala-1, #mandala-2, #mandala-3{
+#mandala-0, #mandala-1, #mandala-2{
     position: absolute ;
     width: 1024px; /* double size */
     height: 768px ; /* double size */
+}
+
+#mandala-0{
+	-webkit-transition: opacity 3s;
+	-webkit-transform: translateZ(0) ;
 }
 
 .bg-layer{
@@ -806,12 +832,15 @@ html,body{
 <script language="javascript">
 function initSgGen()
 {
-	_M[0] 	= document.getElementById('mandala-0') ;
-	_M[1] 	= document.getElementById('mandala-1') ;
-	_M[2] 	= document.getElementById('mandala-2') ;
+	//_M[0] 	= document.getElementById('mandala-0') ;
+	//_M[1] 	= document.getElementById('mandala-1') ;
+	//_M[2] 	= document.getElementById('mandala-2') ;
 	
-	_RBASE 	= randomInt(C_RBMIN, C_RBMAX) ;
-	_IA		= randomInt(0, C_IAMAX) ;
+	_cnv = document.getElementById('mandala-0') ;
+	_ctx = _cnv.getContext('2d') ;
+
+	//_RBASE 	= randomInt(C_RBMIN, C_RBMAX) ;
+	//_IA		= randomInt(0, C_IAMAX) ;
 	
 	spawnMandalaCycle() ;
 	_IMSP 	= window.setInterval('spawnMandalaCycle()',C_MSPAWN_INT) ;
@@ -819,58 +848,41 @@ function initSgGen()
 
 function spawnMandalaCycle()
 {
-	var a ; 			// offset angle (which angle we start drawing at)
-	var r ; 			// radius (of each 'cell' within the mandala)
-	var cnv ; 		// mandala canvas element
-	var ctx ; 		// 2d context from mandala canvas
-  
-	// Wrap angle around to zero if we've reached the max
-	// EXPLANATION: When angle reaches 1650 degrees, the next 137.5 degrees
-	// Takes us to 1787.5 degrees, which is equivalent to 347.5 degrees.
-	// Instead of going to 347.5 degrees, we'll jump to 360 (zero degrees)
-	// Yep, it's off by 12.5 degrees... but that is a very small angle!
-	if(_IA == C_IAMAX ) _IA = 0 ;
-	
-	// If we've drawn the third mandala,
-	// reset _IM and re-randomize _RBASE
-	if(_IM > 2)
-	{
-		_RBASE = randomInt(C_RBMIN,C_RBMAX) ;
-		_IM = 0 ;
-	}
-	
-	cnv = _M[_IM] ;
-	ctx = cnv.getContext('2d') ;
-	r 	= _RBASE * Math.pow(C_PHI,_IM) ;
-	a 	= _IA * C_DA ;
-	
-	// Reset canvas opacity and size before redrawing
-	cnv.style.display = 'none' ;
-	cnv.style.opacity = 0 ;
-	cnv.style.width 	= C_MWIDTH + 'px' ;
-	cnv.style.height	= C_MHEIGHT + 'px' ;
-	cnv.style.display = 'block' ;
-	
-	// Remember, "native size" of canvas is HALF of nominal width/height
-	ctx.clearRect(0, 0, C_MWIDTH / 2, C_MHEIGHT / 2) ;
-	
-	// Draw flower of life, centered on the canvas
-	// using previously calculated 'r' and 'a' values
-	// Remember, again, the native size of the canvas ...
-	// center of canvas will be (C_MWIDTH / 4)
-	drawFol(ctx, C_MWIDTH / 4, C_MHEIGHT / 4, r, a) ;
-	
-	// Set off chain of scale/fade tweens, which will
-	// eventually call 'spawnMandalaCycle' again
-	mGrowCycle(cnv) ;
+	var rBase = randomInt(10,30) ;
+	var aOff = 2 * Math.PI / randomInt(1,7) ;
+	//var aOff = 0 ;
 
-  // Thanks to CSS transforms, all we do is this ...
-  //cnv.className = 'm-cycle' ;
+	var cx = 512 / 2 ;
+	var cy = 384 / 2 ;
+
+	_DQ = [] ;
+
+	// Simple randomization here, for now ...
+	// Gives an idea of what different variations look like
+	_CRAD_ORG = randomInt(0,20) ;
+
+	clearSGCanvas() ;
+	_cnv.style.opacity = 1.0 ;
+
+	for(var i = 0; i < 3; i++)
+	{
+		// No point in drawing the entire thing if ya can't see it!!
+		if(i < 4)
+			drawFol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+		else
+			drawSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+	}
+
+	//console.log('Starting draw sequence, DQ size is '+_DQ.length) ;
+	// Start draw queue processor. Stopped when drawFaded() has no more elements
+	_IDF = window.setInterval('drawFaded()',100) ;
+
+	// Reverse direction for next cycle
 	
-	// Advance to next canvas and next angle
-	// For the next time this fn is called...
-	_IM++ ;
-	_IA++ ;
+	if(!_dir)
+		_dir = 1 ;
+	else
+		_dir = 0 ;
 }
 
 function mGrowCycle(cnv)
@@ -913,48 +925,74 @@ function mDeathCycle(cnv)
 **************************************************/
 
 
-function drawFol(ctx, cx, cy, r, ao){
+function drawFol(cx, cy, r, ao){
     var a ;
     var x ;
     var y ;
 
-    drawSol(ctx, cx, cy, r, ao) ;
+    drawSol(cx, cy, r, ao) ;
 
     for(var i = 0; i < C_SEGS; i++){
         a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
         x = Math.round(cx + 2 * r * Math.cos(a)) ;
         y = Math.round(cy + 2 * r * Math.sin(a)) ;
 
-        drawSol(ctx, x, y, r, a) ;
+        drawSol(x, y, r, a) ;
     }
 }
 
-function drawSol(ctx, cx, cy, r, ao){
+function drawSol(cx, cy, r, ao){
     var a ;
     var x ;
     var y ;
 
-    drawCell(ctx, cx, cy, r) ;
+    _DQ.push([cx, cy, r]) ;
 
     for(var i = 0; i < C_SEGS; i++){
         a = ao + (i + 1) * (2 * Math.PI / C_SEGS) ;
         x = Math.round(cx + r * Math.cos(a)) ;
         y = Math.round(cy + r * Math.sin(a)) ;
-        drawCell(ctx, x, y, r) ;
+        _DQ.push([x, y, r]) ;
     }
 }
 
-function drawCell(ctx, cx, cy, r){
+function drawCell(cx, cy, rNom, o){
+    var cR = 255 ;
+    var cG = 255 ;
+    var cB = 255 ;
+
+    var r = rNom * ( randomInt((100 - _CRAD_ORG),(100 + _CRAD_ORG)) / 100 ) ;
+    r = Math.round(r) ;
+
+    console.log('Drawing cell with r '+r+'/'+_CRAD_ORG+'/'+rNom) ;
+    var rg = _ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+    if(!o) o = 1.0 ;
+
+    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+
+    _ctx.beginPath() ;
+    _ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+    _ctx.fillStyle = rg ;
+    _ctx.fill() ;
+}
+
+function drawBubbleCell(ctx, cx, cy, r, o){
     var cR = 255 ;
     var cG = 255 ;
     var cB = 255 ;
 
     var rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
 
+    if(!o) o = 1.0 ;
+
     rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
     rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
-    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', 0.2)') ;
-    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', 0.5)') ;
+    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
 
     ctx.beginPath() ;
     ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
@@ -962,32 +1000,44 @@ function drawCell(ctx, cx, cy, r){
     ctx.fill() ;
 }
 
-// Scales mandala canvas M around its center point
-// by a factor of 's' where 0 < s < 1.0
-function scaleFromCenter(M,s)
+function drawFaded()
 {
-	var w, h, cX, cY, cXNom, cYNom ;
-		
-	w = Math.round(C_MWIDTH 	* (1 + s)) ;
-	h = Math.round(C_MHEIGHT 	* (1 + s)) ;
-		
-    // Compute original (non-scaled) center point, AKA 'nominal' center point
-    cXNom = C_MWIDTH / 2 ;
-    cYNom = C_MHEIGHT / 2 ;
-    
-    // Compute current center point (with scaling factor applied)
-    cX	= w / 2 ;
-    cY	= h / 2 ;
-    
-    // Adjust width and height
-    M.style.display = 'none' ;
-    M.style.width   = w + 'px' ;
-    M.style.height  = h + 'px' ;
-    
-    // NOW ... Adjust positioning to keep the mandala centered
-    M.style.left	= -1 * Math.round(cX - cXNom) + 'px' ;
-    M.style.top		= -1 * Math.round(cY - cYNom) + 'px' ;
-    M.style.display = 'block' ; // will this flicker?
+	var iMin = _iDF ;
+	var iMax = iMin + C_DFWIN_SIZE ;
+	var iLoc ;
+
+	if(iMax >= _DQ.length)
+	{
+		// Linger briefly, then fade
+		window.setTimeout('doFadeOut()',1200) ;
+		window.clearInterval(_IDF) ;
+		_iDF = 0 ;
+		return ;
+	}
+
+	for(var i = iMin; i <= iMax; i++)
+	{
+		// If direction == 1 (counterclockwise), reverse draw queue
+		if(_dir) iLoc = _DQ.length - i - 1 ;
+
+		// Otherwise, draw normally
+		if(!_dir) iLoc = i ;
+
+		//console.log('Painting faded at idx '+iLoc+'/'+i+'/'+_dir) ;
+		drawCell(_DQ[iLoc][0], _DQ[iLoc][1], _DQ[iLoc][2], 0.06) ;
+	}
+
+	_iDF += C_DFWIN_SIZE / 3 ;
+}
+
+function doFadeOut()
+{
+	_cnv.style.opacity = 0 ;
+}
+
+function clearSGCanvas()
+{
+	_ctx.clearRect(0,0,512,384) ;
 }
 
 // #SEC_JSMAIN
@@ -1361,6 +1411,7 @@ function spawnShardCanvas(cx, cy, rNom, p)
 		
 		// Apply +/- percentage according to organic factors
 		a = aNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_SDIST_ORG)) / 100 ) ;
+		// TODO: round this ... check for anywhere else that screen coordinates or CSS pixels have decimals
 		r = rNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_BLSTRAD_ORG)) / 100 ) ;
 
 		shTmp.push(a) ;
@@ -1488,7 +1539,7 @@ function drawBubbleCnv(r, e)
 	
 	var ctx = cnv.getContext('2d') ;
 
-	if(e == 99) drawCell(ctx, rScaled, rScaled, rScaled) ;
+	if(e == 99) drawBubbleCell(ctx, rScaled, rScaled, rScaled) ;
 	else drawPoly(ctx, rScaled, rScaled, rScaled, e) ;
 
 	return cnv ;
@@ -1752,8 +1803,8 @@ function getRoundedPoint(x1, y1, x2, y2, radius, first) {
 **************************************************/
 function titleSequence1()
 {
-	window.location.href = 'sg-canvas.html' ;
-	return ;
+	//window.location.href = 'sg-canvas.html' ;
+	//return ;
 	
 	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
