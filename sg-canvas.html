@@ -17,10 +17,16 @@
 			-webkit-transition: opacity 5s;
 			-webkit-transform: translateZ(0) ;
 		}
+
+		#shard-container{
+			position: absolute ;
+			width: 1024px ;
+			height: 768px ;
+			z-index: 900 ;
+		}
 	</style>
 	<script language="javascript" src="tween.js"></script>
 	<script language="javascript">
-
 		var _cnv ;
 		var _ctx ;
 
@@ -38,6 +44,11 @@
 
 		var C_CRAD_ORG = 10 ; // +/- % variance in SG pattern
 
+		var C_SDIST_ORG				= 30 ; 		// Shard distribution "organic" factor (+/- this many degrees)
+		var C_BLSTRAD_ORG			= 30 ; 		// Shard "blast radius" organic factor (percentage of nominal radius)
+		var C_SVELOC				= 20 ;		// Shard velocity expressed as # of ticks to full radius
+		var C_SHARDPAD 				= 10 ;
+
 		// TODO: make random factor increase with each draw
 		// ... like a 2nd derivative or something
 		var _CRAD_ORG = 0 ;
@@ -49,15 +60,24 @@
 
 		var _IDF ;
 
+		var _SHARDREG = [] ;
+
+		var _elSc ;
+
 		function main()
 		{
 			_cnv = document.getElementById('sg-container') ;
 			_ctx = _cnv.getContext('2d') ;
 
-			document.getElementById('thebody').addEventListener('click',doReload,false) ;
+			_elSc = document.getElementById('shard-container') ;
+
+			document.getElementById('thebody').addEventListener('touchstart',doExplode,false) ;
+
+			window.setInterval('shardRegGC()',2000) ;
+			window.setInterval('updateShardReg()',250) ;
 
 			doSGCycle() ;
-			window.setInterval('doSGCycle()',10000) ;
+			//window.setInterval('doSGCycle()',10000) ;
 			//window.setInterval('drawRandom()',10) ;
 
 			//window.setTimeout(function(){window.setInterval('drawRandom()',20)},2000) ;
@@ -143,7 +163,7 @@
 			if(iMax >= _DQ.length)
 			{
 				// Linger briefly, then fade
-				window.setTimeout('doFadeOut()',1200) ;
+				//window.setTimeout('doFadeOut()',1200) ;
 				window.clearInterval(_IDF) ;
 				_iDF = 0 ;
 				return ;
@@ -252,9 +272,196 @@
 		{
 
 		}
+
+		function doExplode(ev)
+		{
+			console.log('doExplode called ...') ;
+			spawnShardCanvas(ev.pageX, ev.pageY, randomInt(40,60), randomInt(4,6)) ;
+		}
+
+		// Triggers an explosion at center point cx,cy (screen coordinates)
+		// With average blast radius 'rNom' and particle count 'p'
+		// updateShardReg() takes care of animating and rendering the particles
+		function spawnShardCanvas(cx, cy, rNom, p)
+		{
+			var srTmp = [] ; // complete entry for _SHARDREG
+			var shTmp = [] ; // individual entries for shards (contained in each srTmp entry)
+
+			var elCnv ;
+			var elCtx ;
+
+			var aNom ;
+			var a ;			// Angle of each shard, as its being calculated (including 'organic factor' )
+
+			elCnv = document.createElement('canvas') ;
+
+			elCnv.width 			= 2 * ( rNom + C_SHARDPAD ) ;
+			elCnv.height 			= 2 * ( rNom + C_SHARDPAD ) ;
+
+			elCnv.style.position 	= 'absolute' ;
+
+			elCnv.style.left 		= ( cx - rNom - C_SHARDPAD ) + 'px' ;
+			elCnv.style.top 		= ( cy - rNom - C_SHARDPAD ) + 'px' ;
+			elCnv.style.zIndex		= 200 ;
+
+			elCtx = elCnv.getContext('2d') ;
+
+			srTmp.push(elCnv) ;
+			srTmp.push(elCtx) ;
+			srTmp.push(0) ; // 't' value, initialize to zero ... runs up to 100, indicating 100% complete animation
+
+			srTmp.push(cx) ;
+			srTmp.push(cy) ;
+
+			
+			// Now calculate starting positions and trajectories of particles
+			for(var i = 0; i < p; i++)
+			{
+				shTmp = [] ;
+
+				aNom = (( 2 * Math.PI ) / p) * i ;
+				
+				// Apply +/- percentage according to organic factors
+				a = aNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_SDIST_ORG)) / 100 ) ;
+				// TODO: round this ... check for anywhere else that screen coordinates or CSS pixels have decimals
+				r = rNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_BLSTRAD_ORG)) / 100 ) ;
+
+				shTmp.push(a) ;
+				shTmp.push(Math.round(r)) ;
+				
+				srTmp.push(shTmp) ;
+			}
+			
+			_SHARDREG.push(srTmp) ;
+			_elSc.appendChild(srTmp[0]) ;
+		}
+
+		function updateShardReg()
+		{
+			if(!_SHARDREG.length) return 0 ;
+
+			var srEnt ;
+			var cnv ;
+			var ctx ;
+			var rCur ;
+			var x,y ; // xy position of particle being redrawn (calculated from rCur, a, and cnv center)
+			var t ;
+			var r ;
+
+			// Hide shards
+			_elSc.style.display = 'none' ;
+
+			// Redraw canvases
+			for(var i = 0; i < _SHARDREG.length; i++)
+			{
+				// Loop up from array only once ...
+				// Should get stored as reference to array element
+				srEnt = _SHARDREG[i] ;
+				cnv = srEnt[0] ;
+				ctx = srEnt[1] ;
+
+				// Clear canvas for redrawing
+				//ctx.clearRect(0,0,cnv.width,cnv.height) ;
+				cnv.width = cnv.width ;
+
+				srEnt[2] = srEnt[2] + C_SVELOC ;
+				t = srEnt[2] ;
+
+				// All entries from index 5 onwards are the individual shards
+				for(var j = 5; j < srEnt.length; j++)
+				{
+					// t (scaled to 0-1.0) * r * cos(a) ... / ... sin(a)
+					x = Math.round(srEnt[0].width / 2) + ((t / 100) * srEnt[j][1] * Math.cos(srEnt[j][0])) ;
+					
+					// width/height are same
+					y = Math.round(srEnt[0].width / 2 ) + ((t / 100) * srEnt[j][1] * Math.sin(srEnt[j][0])) ;
+					
+					x = Math.round(x) ;
+					y = Math.round(y) ;
+
+					// Redraw shard, with a random number of edges
+					// ... morphs as it blasts outwards
+					drawShard(ctx, x, y, randomInt(3,8)) ;
+				}
+			}
+
+			window.setTimeout(function(){_elSc.style.display = 'block'}, 100) ;
+			//elSc.style.display = 'block' ;
+		}
+
+		function shardRegGC()
+		{
+			var srEnt ;
+			var cnv ;
+
+			for(var i = 0; i < _SHARDREG.length; i++)
+			{
+				srEnt = _SHARDREG[i] ;
+
+				cnv = srEnt[0] ;
+				
+				// If t has reached 100 (or passed it), remove canvas .. and _SHARDREG entry
+				if(srEnt[2] >= 100)
+				{
+					_SHARDREG.splice(i,1) ;
+					cnv.parentNode.removeChild(cnv) ;
+					continue ;
+				}
+			}
+		}
+
+		// s = side count (for polygon)
+		function drawShard(ctx, x,y,s)
+		{
+			var pts = getPolyPts(x, y, 6, s, 0) ; // leave r and aOffset fixed, for now
+			var x,y ;
+
+			x = pts[0][0] ;
+			y = pts[0][1] ;
+
+			ctx.moveTo(x,y) ;
+
+			for(var i = 1; i < pts.length; i++)
+			{
+				x = pts[i][0] ;
+				y = pts[i][1] ;
+
+				ctx.lineTo(x, y) ;
+			}
+
+			ctx.closePath() ;
+
+			ctx.fillStyle = '#FFF' ;
+			ctx.fill() ;
+			//ctx.strokeStyle = '#fff' ;
+			//ctx.stroke() ;
+		}
+
+		function getPolyPts(cX, cY, r, edgeCount, aOffset)
+		{
+			if(!aOffset) aOffset = 0 ;
+			
+			var a = 0 ;
+			var x = 0 ;
+			var y = 0 ;
+
+			var pts = [] ;
+
+			for(var i = 0; i < edgeCount; i++)
+			{
+				a = aOffset + 2 * Math.PI / edgeCount * i ;
+				x = cX + r * Math.cos(a) ;
+				y = cY + r * Math.sin(a) ;
+
+				pts.push([Math.round(x),Math.round(y)]) ;
+			}
+
+			return pts ;
+		}
 	</script>
 </head>
 <body id="thebody">
+	<div id="shard-container"></div>
 	<canvas id="sg-container" width="512" height="384"></canvas>
 	<script>window.setTimeout('main()',300)</script>
 </body>
