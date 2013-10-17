@@ -12,7 +12,7 @@ A few random notes ...
 
 - Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
 */
-var C_DISAUDIO				= false ;
+var C_DISAUDIO				= true ;
 var C_TAPEVENT				= 'touchstart' 	// 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
@@ -662,10 +662,10 @@ html,body{
 #revolver-bbl
 {
 	position: absolute ;
-	width: 120px ;
-	height: 120px ;
+	width: 130px ;
+	height: 130px ;
 	background: url('img/barrels.png') ;
-	left: 452px ;
+	left: 447px ;
 	top: 15px ;
 
 	z-index: 20000 ;
@@ -1803,10 +1803,10 @@ function getRoundedPoint(x1, y1, x2, y2, radius, first) {
 **************************************************/
 function titleSequence1()
 {
-	window.location.href = 'sg-canvas.html' ;
-	return ;
+	//window.location.href = 'sg-canvas.html' ;
+	//return ;
 	
-	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
+	//_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
 }
 
