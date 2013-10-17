@@ -964,7 +964,7 @@ function drawCell(cx, cy, rNom, o){
     var r = rNom * ( randomInt((100 - _CRAD_ORG),(100 + _CRAD_ORG)) / 100 ) ;
     r = Math.round(r) ;
 
-    console.log('Drawing cell with r '+r+'/'+_CRAD_ORG+'/'+rNom) ;
+    //console.log('Drawing cell with r '+r+'/'+_CRAD_ORG+'/'+rNom) ;
     var rg = _ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
 
     if(!o) o = 1.0 ;
