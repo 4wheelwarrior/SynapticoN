@@ -1086,10 +1086,8 @@ function spawnBubble()
 	
 	// Create canvas, draw on it
 	cnvDom = drawBubbleCnv(r,sides);
-	
-	// TODO: see about blanket listener on parent element, would it decrease latency?
-	// Attach event handler on <canvas> object
-	cnvDom.addEventListener(C_TAPEVENT, bubClick, false);
+
+	// Blanket event listener on #bubble-container handles bubble clicks
 	
 	// Position canvas and set opacity to zero (in preparation for fade in)
 	cnvDom.style.left 		= x + 'px' ;
@@ -1098,7 +1096,7 @@ function spawnBubble()
 	
 	// Tap/Click handler needs to lookup which bubble was hit
 	// Assign it a serial number, stored in the <canvas> id property
-	cnvDom.id = _BUB_TOTAL ;
+	cnvDom.id = 'bub-' + _BUB_TOTAL ;
 	
 	// Add to bubble registry, increment total bubble count
 	_BUBREG.push({	'ser':_BUB_TOTAL,
@@ -1379,7 +1377,7 @@ function spawnShardCanvas(cx, cy, rNom, p)
 
 	// If tween ticker isn't already in slow mode, slow it down
 	// It'll be reset next time updateShardReg is called and _SHARDREG is empty ...
-	if(!_TTICK_ISSLOW) ttickSlow() ;
+	//if(!_TTICK_ISSLOW) ttickSlow() ;
 
 	elCnv = document.createElement('canvas') ;
 
@@ -1479,14 +1477,14 @@ function updateShardReg()
 
 function shardRegGC()
 {
-	if(!_SHARDREG.length && !_TTICK_ISSLOW) return ;
+	//if(!_SHARDREG.length && !_TTICK_ISSLOW) return ;
 
 	// If shardreg is empty and tween ticker is on slow, reset it to regular
-	if(!_SHARDREG.length && _TTICK_ISSLOW)
-	{
-		ttickReg() ;
-		return ;
-	}
+	// if(!_SHARDREG.length && _TTICK_ISSLOW)
+	// {
+	// 	ttickReg() ;
+	// 	return ;
+	// }
 
 	var srEnt ;
 	var cnv ;
@@ -1613,11 +1611,16 @@ function renderDigitsRight(idPrefix,valInt)
 function bubClick(e)
 {	
 	var ser = e.target.id ;
+	console.log('Got bubclick on id '+ser) ;
+	var parts = ser.split('-') ;
+
+	// Not a bubble? DO NOTHING!
+	if(parts[0] != 'bub') return 0 ;
 		
 	// Find index in _BUBREG of bubble with serial #  'ser'
 	for(var i = 0; i < _BUBREG.length; i++)
 	{
-		if(_BUBREG[i].ser == ser) break ;
+		if(_BUBREG[i].ser == parts[1]) break ;
 	}
 	
 	popBub(i) ;
@@ -1941,6 +1944,9 @@ function launchSequence6()
 
 	// Pull the curtain
 	//fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
+
+	// Add blanket listener for bubble taps
+	document.getElementById('bubble-container').addEventListener(C_TAPEVENT, bubClick, false);
 
 	// For now, hide element, turn off tween ticker ...
 	document.getElementById('title-bg-mandala').style.display = 'none' ;
