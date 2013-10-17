@@ -1301,6 +1301,9 @@ function popBub(i)
 	var burstX = _BUBREG[i].x + _BUBREG[i].r ;
 	var burstY = _BUBREG[i].y + _BUBREG[i].r ;
 
+	// Trigger burst sound effect here (does this decrease latency at all?)
+	playSfx(0) ;
+	
 	// TODO: make these constants ...
 	burstX -= randomInt(0,5) ;
 	burstY -= randomInt(0,5) ;
@@ -1615,9 +1618,6 @@ function bubClick(e)
 
 	// Not a bubble? DO NOTHING!
 	if(parts[0] != 'bub') return 0 ;
-
-	// Trigger burst sound effect here (does this decrease latency at all?)
-	playSfx(0) ;
 		
 	// Find index in _BUBREG of bubble with serial #  'ser'
 	for(var i = 0; i < _BUBREG.length; i++)
