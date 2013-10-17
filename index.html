@@ -1806,7 +1806,7 @@ function titleSequence1()
 	//window.location.href = 'sg-canvas.html' ;
 	//return ;
 	
-	//_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
+	_ITWN = window.setInterval('tweenTicker()',C_TTICK_INT) ;
 	window.setTimeout('titleSequence2()',2000) ;
 }
 
@@ -1940,7 +1940,11 @@ function launchSequence6()
 	initSgGen() ;
 
 	// Pull the curtain
-	fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
+	//fadeElementOut(document.getElementById('title-bg-mandala'),1500,function(){}) ;
+
+	// For now, hide element, turn off tween ticker ...
+	document.getElementById('title-bg-mandala').style.display = 'none' ;
+	window.clearInterval(_ITWN) ;
 }
 
 function bnHide(e)
