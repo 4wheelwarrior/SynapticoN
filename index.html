@@ -12,7 +12,7 @@ A few random notes ...
 
 - Implement a sound queue ... SFX get cued in a chain, returns to loop when all done
 */
-var C_DISAUDIO				= true ;
+var C_DISAUDIO				= false ;
 var C_TAPEVENT				= 'touchstart' 	// 'touchstart' or 'click' for iPad or Desktop...
 // #SEC_JSHEAD
 var C_TTICK_INT   			= 333 ;		// Tween ticker interval (msec)
@@ -1315,14 +1315,14 @@ function popBub(i)
 	wFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 	hFac = Math.floor(2 * _BUBREG[i].r * C_BUB_PBEXP) ;
 
-	// Trigger burst sound effect
-	playSfx(0) ;
-
 	// center (x,y), blast radius 'r', particle count 'p'
 	// TODO: transfer blast radius scaling factor into constant
 	//explode(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
 	// TODO: transfer '2' into a constant (multiplier on radius to get shard radius)
 	spawnShardCanvas(burstX, burstY, Math.floor(_BUBREG[i].r * 2), randomInt(3,5)) ;
+
+	// Immediately call updateShardReg() so SOMETHING shows up!
+	updateShardReg() ;
 
 	// Does this get handled by GC?
 	//_BUBREG[i].cnv.parentNode.removeChild(_BUBREG[i].cnv) ;
@@ -1611,11 +1611,13 @@ function renderDigitsRight(idPrefix,valInt)
 function bubClick(e)
 {	
 	var ser = e.target.id ;
-	console.log('Got bubclick on id '+ser) ;
 	var parts = ser.split('-') ;
 
 	// Not a bubble? DO NOTHING!
 	if(parts[0] != 'bub') return 0 ;
+
+	// Trigger burst sound effect here (does this decrease latency at all?)
+	playSfx(0) ;
 		
 	// Find index in _BUBREG of bubble with serial #  'ser'
 	for(var i = 0; i < _BUBREG.length; i++)
