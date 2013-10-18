@@ -1,0 +1,299 @@
+<html>
+<head>
+
+<title>SynapticonN</title>
+
+<script src="phonegap.js"></script>
+
+</head>
+
+<body 	id="thebody">
+
+<!--                                  -->
+<!--                 MARKUP           -->
+<!--                                  -->
+<div 	id="shard-container" 					style="z-index: 1500"></div>
+<div 	id="bubble-container" 					style="z-indes: 1000"></div>
+
+<canvas id="geom-1" 			width="512"		height="384" 	style="z-index: 600"></canvas>
+<canvas id="geom-2" 			width="512"		height="384" 	style="z-index: 500"></canvas>
+
+<canvas id="partcl-sprite"		width="70" 		height="10"		style="display: none"></canvas>
+<canvas id="bubble-sprite"		width="420" 	height="60"		style="display: block"></canvas>
+<canvas id="gcell-sprite"		width="240"		height="240"	style="display: block"></canvas>
+<!--                                  -->
+<!--                 JAVASCRIPT       -->
+<!--                                  -->
+<script>
+
+/***************************************************
+*
+*					 Primary Logic
+*
+****************************************************/
+
+var C_BUBRAD 		= 30 ;		// Bubble radius (native canvas coords)
+var C_BUB_CRAD 		= 5 ;		// Bubble corner radius (canvas coords)
+
+var C_GCELL_RAD		= 120 ;		// G sprite cell radius (canvas coords)
+
+var _cnvPS ;					// Canvas / Context for particle sprite
+var _ctxPS ;
+
+// Canvas/Context for bubble sprite
+var _cnvBS ;
+var _ctxBS ;
+
+var _cnvSC ;
+var _ctxSC ;
+
+function main()
+{
+	_cnvPS = document.getElementById('partcl-sprite') ;
+	_ctxPS = _cnvPS.getContext('2d') ;
+
+	_cnvBS = document.getElementById('bubble-sprite') ;
+	_ctxBS = _cnvBS.getContext('2d') ;
+
+	_cnvGC = document.getElementById('gcell-sprite') ;
+	_ctxGC = _cnvGC.getContext('2d') ;
+
+	//renderParticleSprite() ;
+	renderBubbleSprite() ;
+	renderGCellSprite() ;
+}
+
+function renderParticleSprite()
+{
+
+}
+
+function renderGCellSprite()
+{
+	drawGCell(_ctxGC, C_GCELL_RAD, C_GCELL_RAD, C_GCELL_RAD)
+}
+
+function renderBubbleSprite()
+{
+	// Centerline of bubble being drawn
+	// Starts at half of bubble width
+	var cX = C_BUBRAD / 2 ;
+	var cY = C_BUBRAD ;
+
+	// Render polygon bubbles
+	for(var vCount = 3; vCount <= 8; vCount++)
+	{
+		drawRoundedPoly(_ctxBS, cX, cY, C_BUBRAD, C_BUB_CRAD, vCount, 0) ;
+		cX += 2 * C_BUBRAD ;
+	}
+
+	// And now, a circular bubble... fake it for now :)
+	drawRoundedPoly(_ctxBS, cX, cY, C_BUBRAD, C_BUB_CRAD, 16, 0) ;
+}
+
+/***************************************************
+*
+*					 Drawing Routines
+*
+****************************************************/
+
+function drawGCell(ctx, cx, cy, r)
+{
+    var cR 	= 255 ;
+    var cG 	= 255 ;
+    var cB 	= 255 ;
+    var o 	= 1.0 ;
+
+    var rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+
+    ctx.beginPath() ;
+    ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+    ctx.fillStyle = rg ;
+    ctx.fill() ;
+}
+
+function drawRoundedPoly(ctx, cX, cY, r, cRad, vCount, aOffset)
+{
+	var pts ;
+	
+	console.log('dRP vC '+vCount) ;
+
+
+	// 1st coat (innermost edge)
+	pts = getPolyPts(cX, cY, r - 6, vCount, aOffset) ;
+	_ctxBS.lineWidth = 8 ;
+	doPolyDraw(ctx, pts, cRad, 0.2) ;
+
+	// 2nd coat
+	pts = getPolyPts(cX, cY, r - 4, vCount, aOffset) ;
+	doPolyDraw(ctx, pts, cRad, 0.4) ;
+
+	// 3rd coat
+	_ctxBS.lineWidth = 5 ;
+	pts = getPolyPts(cX, cY, r - 2, vCount, aOffset) ;
+	doPolyDraw(ctx, pts, cRad, 0.5) ;
+	
+	// 4th coat (outermost edge)
+	_ctxBS.lineWidth = 2 ;
+	pts = getPolyPts(cX, cY, r - 1, vCount, aOffset) ;
+	doPolyDraw(ctx, pts, cRad, 0.8) ;
+}
+
+
+/***************************************************
+*
+*					 Helper Routines
+*
+****************************************************/
+
+// Returns vertices for basic polygon shape
+function getPolyPts(cX, cY, r, vCount, aOffset)
+{
+	console.log('getPolyPts called '+cX+', '+cY+', '+r+', '+vCount) ;
+
+	var a = 0 ;
+	var x = 0 ;
+	var y = 0 ;
+
+	var pts = [] ;
+
+	for(var i = 0; i < vCount; i++)
+	{
+		a = aOffset + 2 * Math.PI / vCount * i ;
+		x = cX + r * Math.cos(a) ;
+		y = cY + r * Math.sin(a) ;
+
+		pts.push([Math.round(x),Math.round(y)]) ;
+	}
+
+	return pts ;
+}
+
+// Lifted from http://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
+// Does all the work for drawRoundedPoly() far as putting pixels down
+function doPolyDraw(ctx, pts, cRad, opac)
+{
+	if (cRad > 0) pts = getRoundedPoints(pts, cRad);
+
+	var pt = [] ;
+	
+	ctx.beginPath() ;
+
+	for(var i = 0; i < pts.length; i++)
+	{
+    	pt = pts[i];
+    	console.log('Drawing at '+pt[0]+' ,'+pt[1]) ;
+    	
+    	if (i == 0) ctx.moveTo(pt[0], pt[1])
+   		else ctx.lineTo(pt[0], pt[1])
+
+   		if (cRad > 0) ctx.quadraticCurveTo(pt[2], pt[3], pt[4], pt[5]);
+    }
+
+  	ctx.closePath();
+
+  	ctx.strokeStyle = 'rgba(255,255,255,' + opac + ')' ;
+  	ctx.stroke() ;
+}
+
+
+// Takes an array of points from getPolyPts
+// And generates points for quadratic curves
+function getRoundedPoints(pts, cRad)
+{
+	var i1, i2, i3, p1, p2, p3 ;
+
+	var prevPt = [] ;
+	var nextPt = [] ;
+
+    var len = pts.length ;
+    var res = new Array(len) ;
+
+  	for (i2 = 0; i2 < len; i2++)
+  	{
+	    i1 = i2 - 1 ;
+	    i3 = i2 + 1 ;
+	    
+	    if (i1 < 0) 	i1 = len - 1 ;
+	    if (i3 == len) 	i3 = 0 ;
+	    
+	    p1 = pts[i1];
+	    p2 = pts[i2];
+	    p3 = pts[i3];
+	    
+	    prevPt = getRoundedPoint( p1[0], p1[1], p2[0], p2[1], cRad, false ) ;
+	    nextPt = getRoundedPoint( p2[0], p2[1], p3[0], p3[1], cRad, true ) ;
+	    
+	    res[i2] = [ prevPt[0], prevPt[1], p2[0], p2[1], nextPt[0], nextPt[1] ] ;
+  	}
+
+  	return res ;
+}
+
+function getRoundedPoint(x1, y1, x2, y2, cRad, first)
+{
+	var total 	= Math.sqrt( Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2) ) ;
+    var idx 	= first ? cRad / total : ( total - cRad ) / total ;
+  	
+  	return [ Math.round(x1 + (idx * (x2 - x1))), Math.round(y1 + (idx * (y2 - y1))) ] ;
+}
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+</script>
+
+<!--                                  -->
+<!--                 CSS              -->
+<!--                                  -->
+<style>
+
+#thebody
+{
+	padding: 		0 ;
+	border: 		0 ;
+	width: 			1024px ;
+	height: 		768px ;
+	overflow: 		hidden ;
+
+	background:		navy ;
+}
+
+#shard-container, #bubble-container, #geom-1, #geom-2
+{
+	position: 		absolute ;
+	width: 			1024px ;
+	height: 		768px ;
+}
+
+#bubble-sprite
+{
+	z-index: 10000 ;
+	border: 2px solid red ;
+	width: 840px ;
+	height: 120px ;
+	opacity: 0.2 ;
+}
+
+#gcell-sprite
+{
+	z-index: 12000 ;
+	border: 2px solid green ;
+	width: 240px ;
+	height: 240px ;
+	opacity: 1.0 ;
+
+	top: 300px ;
+}
+</style>
+</body>
+
+<script>window.setTimeout('main()',500)</script>
+</html>
