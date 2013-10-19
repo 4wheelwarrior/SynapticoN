@@ -5,7 +5,7 @@
 			
 			width: 1024px ;
 			height: 768px ;
-			background: url('img/bg-blu.png') ;
+			background: url('img/bg-ind.png') ;
 			background-position: center ;
 		}
 
@@ -64,6 +64,13 @@
 
 		var _elSc ;
 
+		var _cnvGS ;
+		var _ctxGS ;
+
+		var C_GCELL_RAD		= 120 ;		// G sprite cell radius (canvas coords)
+
+		var C_TAPEVENT		= 'touchstart' ;
+
 		function main()
 		{
 			_cnv = document.getElementById('sg-container') ;
@@ -71,13 +78,18 @@
 
 			_elSc = document.getElementById('shard-container') ;
 
-			document.getElementById('thebody').addEventListener('touchstart',doExplode,false) ;
+			_cnvGS = document.getElementById('gcell-sprite') ;
+			_ctxGS = _cnvGS.getContext('2d') ;
+
+			drawGCell(_ctxGS, C_GCELL_RAD, C_GCELL_RAD, C_GCELL_RAD)
+
+			document.getElementById('thebody').addEventListener(C_TAPEVENT,doExplode,false) ;
 
 			window.setInterval('shardRegGC()',2000) ;
 			window.setInterval('updateShardReg()',250) ;
 
 			doSGCycle() ;
-			window.setInterval('doSGCycle()',10000) ;
+			window.setInterval('doSGCycle()',16000) ;
 			//window.setInterval('drawRandom()',10) ;
 
 			//window.setTimeout(function(){window.setInterval('drawRandom()',20)},2000) ;
@@ -97,7 +109,7 @@
 
 			// Simple randomization here, for now ...
 			// Gives an idea of what different variations look like
-			C_CRAD_ORG = randomInt(0,20) ;
+			C_CRAD_ORG = randomInt(0,30) ;
 
 			clearSGCanvas() ;
 			_cnv.style.opacity = 1.0 ;
@@ -105,10 +117,10 @@
 			for(var i = 0; i < 3; i++)
 			{
 				// No point in drawing the entire thing if ya can't see it!!
-				if(i < 4)
+				// if(i < 2)
 					drawFol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
-				else
-					drawSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+				// else
+				// 	drawSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 			}
 
 			//console.log('Starting draw sequence, DQ size is '+_DQ.length) ;
@@ -163,7 +175,7 @@
 			if(iMax >= _DQ.length)
 			{
 				// Linger briefly, then fade
-				window.setTimeout('doFadeOut()',1200) ;
+				window.setTimeout('doFadeOut()',4400) ;
 				window.clearInterval(_IDF) ;
 				_iDF = 0 ;
 				return ;
@@ -244,22 +256,16 @@
 		    var cG = 255 ;
 		    var cB = 255 ;
 
+		    // Calculate x, y of top left corner relative to center
+		    var x = cx - C_GCELL_RAD ;
+		    var y = cy - C_GCELL_RAD ;
+
 		    var r = rNom * ( randomInt((100 - C_CRAD_ORG),(100 + C_CRAD_ORG)) / 100 ) ;
 		    r = Math.round(r) ;
 
-		    var rg = _ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+		    var w = C_GCELL_RAD * 2 ;
 
-		    if(!o) o = 1.0 ;
-
-		    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
-		    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
-		    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
-		    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
-
-		    _ctx.beginPath() ;
-		    _ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
-		    _ctx.fillStyle = rg ;
-		    _ctx.fill() ;
+		    _ctx.drawImage(_cnvGS, 0, 0, w, w, x, y, rNom * 2, rNom * 2)
 		}
 
 		function randomInt(min, max)
@@ -458,11 +464,32 @@
 
 			return pts ;
 		}
+
+		function drawGCell(ctx, cx, cy, r)
+		{
+		    var cR 	= 255 ;
+		    var cG 	= 255 ;
+		    var cB 	= 255 ;
+		    var o 	= 1.0 ;
+
+		    var rg = ctx.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+		    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+		    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+		    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+		    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+
+		    ctx.beginPath() ;
+		    ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+		    ctx.fillStyle = rg ;
+		    ctx.fill() ;
+		}
 	</script>
 </head>
 <body id="thebody">
 	<div id="shard-container"></div>
 	<canvas id="sg-container" width="512" height="384"></canvas>
+	<canvas id="gcell-sprite"		width="240"		height="240"	style="display: block"></canvas>
 	<script>window.setTimeout('main()',300)</script>
 </body>
 </html>
