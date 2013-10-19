@@ -18,9 +18,11 @@
 <canvas id="geom-1" 			width="512"		height="384" 	style="z-index: 600"></canvas>
 <canvas id="geom-2" 			width="512"		height="384" 	style="z-index: 500"></canvas>
 
-<canvas id="partcl-sprite"		width="70" 		height="10"		style="display: none"></canvas>
+<canvas id="shard-sprite"		width="48" 		height="12"		style="display: block"></canvas>
 <canvas id="bubble-sprite"		width="420" 	height="60"		style="display: block"></canvas>
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: block"></canvas>
+
+<canvas id="the-canvas"			width="200"		height="200"	style="display: block"></canvas>
 <!--                                  -->
 <!--                 JAVASCRIPT       -->
 <!--                                  -->
@@ -32,25 +34,42 @@
 *
 ****************************************************/
 
+var C_TAPEVENT		= 'touchstart'
+
 var C_BUBRAD 		= 30 ;		// Bubble radius (native canvas coords)
 var C_BUB_CRAD 		= 5 ;		// Bubble corner radius (canvas coords)
 
 var C_GCELL_RAD		= 120 ;		// G sprite cell radius (canvas coords)
 
-var _cnvPS ;					// Canvas / Context for particle sprite
-var _ctxPS ;
+var C_SHDRAD		= 6 ;		// Shard sprite radius  (canvas coords)
 
-// Canvas/Context for bubble sprite
-var _cnvBS ;
+// X coordinates defining clipping regions for shard sprite.
+// Can't quite calculate this precisely from C_SHARDRAD alone.
+var C_SS_IDX		= [0, 9, 21, 33, 46] ;
+var C_BS_IDX		= [0, 46, 106, 165, 226, 286, 345, 404] ;
+
+var C_SDIST_ORG		= 30 ; 		// Shard distribution "organic" factor (+/- this many degrees)
+var C_BLSTRAD_ORG	= 30 ; 		// Shard "blast radius" organic factor (percentage of nominal radius)
+var C_SVELOC		= 20 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SHARDPAD 		= 10 ;		// Padding beyond rNom on shard canvas
+
+var _cnvSS ;					// Canvas / Context for shard sprite
+var _ctxSS ;
+
+var _cnvBS ;					// Canvas/Context for bubble sprite
 var _ctxBS ;
 
-var _cnvSC ;
-var _ctxSC ;
+var _cnvGC ;					// Canvas/Context for G cell sprite
+var _ctxGC ;
+
+var _cnvTC, _ctxTC ;
+
+var _SHARDREG 		= [] ;
 
 function main()
 {
-	_cnvPS = document.getElementById('partcl-sprite') ;
-	_ctxPS = _cnvPS.getContext('2d') ;
+	_cnvSS = document.getElementById('shard-sprite') ;
+	_ctxSS = _cnvSS.getContext('2d') ;
 
 	_cnvBS = document.getElementById('bubble-sprite') ;
 	_ctxBS = _cnvBS.getContext('2d') ;
@@ -58,14 +77,78 @@ function main()
 	_cnvGC = document.getElementById('gcell-sprite') ;
 	_ctxGC = _cnvGC.getContext('2d') ;
 
+	_cnvTC = document.getElementById('the-canvas') ;
+	_ctxTC = _cnvTC.getContext('2d') ;
+
+	_elSC = document.getElementById('shard-container') ;
+
 	//renderParticleSprite() ;
 	renderBubbleSprite() ;
 	renderGCellSprite() ;
+	renderShardSprite() ;
+
+	window.setInterval('updateShardReg()',250) ;
+
+	_elSC.addEventListener(C_TAPEVENT, doClick, false) ;
+	_cnvGC.addEventListener(C_TAPEVENT, function(){window.location.href = 'game.html'}, false) ;
 }
 
-function renderParticleSprite()
+function doClick(ev)
 {
+	var x = ev.pageX ;
+	var y = ev.pageY ;
 
+	var r = randomInt(50,100) ;	// nominal radius
+	var p = randomInt(3,9) ;	// particle count
+
+	spawnShardCanvas(x, y, r, p) ;
+}
+
+function doCopy()
+{
+	console.log('doCopy running ...') ;
+	console.log(_ctxTC) ;
+	console.log(_cnvSS) ;
+
+	var x1, x2, w ;
+
+	// Copy some shards
+	for(var i = 0; i < 4; i++)
+	{
+		x1 = C_SS_IDX[i] ;
+		x2 = C_SS_IDX[i + 1] ;
+
+		w = x2 - x1 ;
+
+		_ctxTC.drawImage(_cnvSS, x1, 0, w, C_SHDRAD * 2, randomInt(50,100), randomInt(50,100), w, 12) ;
+	}
+
+	for(i = 0; i < 6; i++)
+	{
+
+		// Copy a bubble
+		x1 = C_BS_IDX[i] ;
+		x2 = C_BS_IDX[i + 1] ;
+
+		w = x2 - x1 ;
+
+		_ctxTC.drawImage(_cnvBS, x1, 0, w, C_BUBRAD * 2, randomInt(0,150), randomInt(0,150), w, C_BUBRAD * 2) ;
+	}
+}
+
+function renderShardSprite()
+{
+	// Centerline of shard being drawn
+	// Starts at half of shard width
+	var cX = C_SHDRAD / 2 ;
+	var cY = C_SHDRAD ;
+
+	// Render polygons
+	for(var vCount = 3; vCount <= 6; vCount++)
+	{
+		drawPoly(_ctxSS, cX, cY, C_SHDRAD, vCount, 0) ;
+		cX += 2 * C_SHDRAD ;
+	}
 }
 
 function renderGCellSprite()
@@ -91,9 +174,177 @@ function renderBubbleSprite()
 	drawRoundedPoly(_ctxBS, cX, cY, C_BUBRAD, C_BUB_CRAD, 16, 0) ;
 }
 
+
+
 /***************************************************
 *
-*					 Drawing Routines
+*					 Shard/Explosion Routines
+*
+****************************************************/
+
+function spawnShardCanvas(cx, cy, rNom, p)
+{
+	var srTmp = [] ; // complete entry for _SHARDREG
+	var shTmp = [] ; // individual entries for shards (contained in each srTmp entry)
+
+	var elCnv ;
+	var elCtx ;
+
+	var aNom ;
+	var a ;			// Angle of each shard, as its being calculated (including 'organic factor' )
+
+	// If tween ticker isn't already in slow mode, slow it down
+	// It'll be reset next time updateShardReg is called and _SHARDREG is empty ...
+	//if(!_TTICK_ISSLOW) ttickSlow() ;
+
+	elCnv = document.createElement('canvas') ;
+
+	elCnv.width 			= 2 * ( rNom + C_SHARDPAD ) ;
+	elCnv.height 			= 2 * ( rNom + C_SHARDPAD ) ;
+
+	elCnv.style.position 	= 'absolute' ;
+
+	elCnv.style.left 		= ( cx - rNom - C_SHARDPAD ) + 'px' ;
+	elCnv.style.top 		= ( cy - rNom - C_SHARDPAD ) + 'px' ;
+
+	elCtx = elCnv.getContext('2d') ;
+
+	srTmp.push(elCnv) ;
+	srTmp.push(elCtx) ;
+	srTmp.push(0) ; // 't' value, initialize to zero ... runs up to 100, indicating 100% complete animation
+
+	srTmp.push(cx) ;
+	srTmp.push(cy) ;
+
+	
+	// Now calculate starting positions and trajectories of particles
+	for(var i = 0; i < p; i++)
+	{
+		shTmp = [] ;
+
+		aNom = (( 2 * Math.PI ) / p) * i ;
+		
+		// Apply +/- percentage according to organic factors
+		a = aNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_SDIST_ORG)) / 100 ) ;
+		// TODO: round this ... check for anywhere else that screen coordinates or CSS pixels have decimals
+		r = rNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_BLSTRAD_ORG)) / 100 ) ;
+
+		shTmp.push(a) ;
+		shTmp.push(Math.round(r)) ;
+		
+		srTmp.push(shTmp) ;
+	}
+	
+	_SHARDREG.push(srTmp) ;
+	_elSC.appendChild(srTmp[0]) ;
+}
+
+function updateShardReg()
+{
+	if(!_SHARDREG.length) return 0 ;
+
+	var srEnt ;
+	var cnv ;
+	var ctx ;
+	var rCur ;
+	var x,y ; // xy position of particle being redrawn (calculated from rCur, a, and cnv center)
+	var t ;
+	var r ;
+
+	// Hide shards
+	_elSC.style.display = 'none' ;
+
+	// Redraw canvases
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		// Loop up from array only once ...
+		// Should get stored as reference to array element
+		srEnt = _SHARDREG[i] ;
+		cnv = srEnt[0] ;
+		ctx = srEnt[1] ;
+
+		// Clear canvas for redrawing
+		//ctx.clearRect(0,0,cnv.width,cnv.height) ;
+		cnv.width = cnv.width ;
+
+		srEnt[2] = srEnt[2] + C_SVELOC ;
+		t = srEnt[2] ;
+
+		// All entries from index 5 onwards are the individual shards
+		for(var j = 5; j < srEnt.length; j++)
+		{
+			// t (scaled to 0-1.0) * r * cos(a) ... / ... sin(a)
+			x = Math.round(srEnt[0].width / 2) + ((t / 100) * srEnt[j][1] * Math.cos(srEnt[j][0])) ;
+			
+			// width/height are same
+			y = Math.round(srEnt[0].width / 2 ) + ((t / 100) * srEnt[j][1] * Math.sin(srEnt[j][0])) ;
+			
+			x = Math.round(x) ;
+			y = Math.round(y) ;
+
+			// Redraw shard, with a random number of edges
+			// ... morphs as it blasts outwards
+			drawShard(ctx, x, y, randomInt(0,1)) ;
+		}
+	}
+
+	window.setTimeout(function(){_elSC.style.display = 'block'}, 100) ;
+}
+
+// i refers indices in shard sprite 0 = 3sided, 1 = 4sided ... 3 = 6sided
+// Note that x,y here refers to the top-left of the shard, not the center
+function drawShard(ctx, x, y, i)
+{
+	var x1, x2, w ;
+	console.log('drawShard() called | x:'+x+', y:'+y+', i:'+i) ;
+	console.log(ctx) ;
+
+	x1 = C_SS_IDX[i] ;
+	x2 = C_SS_IDX[i + 1] ;
+
+	w = x2 - x1;
+ 
+ 	// Copy pixel block from shard sprite
+	ctx.drawImage(_cnvSS, x1, 0, w, C_SHDRAD * 2, x, y, w, C_SHDRAD * 2) ;
+}
+
+function shardRegGC()
+{
+	//if(!_SHARDREG.length && !_TTICK_ISSLOW) return ;
+
+	// If shardreg is empty and tween ticker is on slow, reset it to regular
+	// if(!_SHARDREG.length && _TTICK_ISSLOW)
+	// {
+	// 	ttickReg() ;
+	// 	return ;
+	// }
+
+	var srEnt ;
+	var cnv ;
+
+	for(var i = 0; i < _SHARDREG.length; i++)
+	{
+		srEnt = _SHARDREG[i] ;
+
+		cnv = srEnt[0] ;
+		
+		// If t has reached 100 (or passed it), remove canvas .. and _SHARDREG entry
+		if(srEnt[2] >= 100)
+		{
+			_SHARDREG.splice(i,1) ;
+			cnv.parentNode.removeChild(cnv) ;
+			continue ;
+		}
+	}
+}
+
+
+
+
+
+/***************************************************
+*
+*					 Drawing Routines (Low Level)
 *
 ****************************************************/
 
@@ -115,6 +366,27 @@ function drawGCell(ctx, cx, cy, r)
     ctx.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
     ctx.fillStyle = rg ;
     ctx.fill() ;
+}
+
+function drawPoly(ctx, cX, cY, r, vCount, aOffset)
+{
+	var pts = getPolyPts(cX, cY, r, vCount, aOffset) ;
+
+	//console.log('Drawing poly with pts :') ;
+	//console.log(pts) ;
+
+	ctx.beginPath() ;
+
+	ctx.moveTo(pts[0][0], pts[0][1]) ;
+
+	for(var i = 1; i < pts.length; i++) ctx.lineTo(pts[i][0], pts[i][1]) ;
+
+	ctx.closePath();
+
+	ctx.lineWidth = 2 ;
+  	ctx.strokeStyle = '#FFFFFF' ;
+
+	ctx.stroke() ;
 }
 
 function drawRoundedPoly(ctx, cX, cY, r, cRad, vCount, aOffset)
@@ -154,8 +426,6 @@ function drawRoundedPoly(ctx, cX, cY, r, cRad, vCount, aOffset)
 // Returns vertices for basic polygon shape
 function getPolyPts(cX, cY, r, vCount, aOffset)
 {
-	console.log('getPolyPts called '+cX+', '+cY+', '+r+', '+vCount) ;
-
 	var a = 0 ;
 	var x = 0 ;
 	var y = 0 ;
@@ -187,8 +457,7 @@ function doPolyDraw(ctx, pts, cRad, opac)
 	for(var i = 0; i < pts.length; i++)
 	{
     	pt = pts[i];
-    	console.log('Drawing at '+pt[0]+' ,'+pt[1]) ;
-    	
+
     	if (i == 0) ctx.moveTo(pt[0], pt[1])
    		else ctx.lineTo(pt[0], pt[1])
 
@@ -284,7 +553,7 @@ function randomInt(min, max)
 
 #gcell-sprite
 {
-	z-index: 12000 ;
+	z-index: 10000 ;
 	border: 2px solid green ;
 	width: 240px ;
 	height: 240px ;
@@ -292,8 +561,29 @@ function randomInt(min, max)
 
 	top: 300px ;
 }
+
+#shard-sprite
+{
+	z-index: 10000 ;
+	border: 2px solid yellow ;
+	width: 48px ;
+	height: 12px ;
+	opacity: 1.0 ;
+
+	top: 400px ;
+}
+
+#the-canvas
+{
+	border: 2px solid orange ;
+
+	position: absolute ;
+	top: 160px ;
+	left: 250px ;
+}
+
 </style>
 </body>
 
-<script>window.setTimeout('main()',500)</script>
+<script>window.setTimeout('main()',500); window.setTimeout('doCopy()',500);</script>
 </html>
