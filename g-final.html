@@ -1,0 +1,306 @@
+<html>
+<head>
+	<style>
+		#thebody{
+			margin: 0 ;
+			padding: 0 ;
+			overflow: hidden ;
+			width: 1024px ;
+			height: 768px ;
+			background: url('img/bg-blu.png') ;
+			background-position: center ;
+		}
+
+		#g-cnv{
+			position: absolute ;
+			/* double native canvas size for fullscreen */
+			width: 1024px ;
+			height: 768px ;
+			z-index: 100 ;
+			-webkit-transition: opacity 5s;
+			-webkit-transform: translateZ(0) ;
+		}
+	</style>
+	<script>
+		// Native width/height of Geom. Canvas
+		var C_GCNV_W = 512 ;
+		var C_GCNV_H = 384 ;
+
+		// Radius/Opacity of GCell sprite
+		var C_GSPR_R = 120 ;
+		var C_GSPR_O = 0.07 ;
+
+		// Interval on which drawFaded is called
+		var C_GDF_INT = 10 ;
+
+		// Number of points around circle (inherent to geometry pattern)
+		// Probably won't change ....
+		var C_GSEGS = 6 ;
+
+		var C_DA = 2.39982772 ;
+		var C_PHI = ( 1 + Math.sqrt(5) ) / 2 ;
+
+		// Draw window size
+		// Works like this:
+		// Center iDF in draw window (called "i" here for short)
+		// 
+		//  |--------i-------|
+		// [00, 01, 02, 03, 04, 05, 06, 07]
+		//
+		//
+		// Paint all cells from beginning to end of draw window
+		//
+		//  |-------> increment i by C_DFINC
+		//          |--------i-------|
+		// [00, 01, 02, 03, 04, 05, 06, 07]
+		//
+		// Paint all cells again ... rinse and repeat
+		// 
+		// NOTE: Cell opacity (C_GSPR_O) needs to be tweaked
+		// When changing these values because of more/less layers painted
+		// Eg. C_DFWIN_SIZE halves, C_GSPR_O doubles (roughly)
+		var C_DFWIN_SIZE = 8 ;
+		var C_DFINC = 2 ;
+
+		// "organic" factor range for painting geom. cells
+		var C_GORG_MIN = 5 ;
+		var C_GORG_MAX = 25 ;
+
+		// ms Delay before fading out geom. canvas after drawing
+		var C_GFDELAY = 4400 ;
+
+		// Canvases/Context for geom. sprite and geom. Canvas
+		var _cnvGS ;
+		var _ctxGS ;
+		var _cnvG ;
+		var _ctxG ;
+
+		// "Geometry Draw Queue"
+		// Contains center points, radii for geometry cells
+		// Ordered in the correct sequence for drawing
+		var _GDQ = [] ;
+
+		// Actual organic factor
+		// Randomized at beginning of geom cycle,
+		// Stays the same until next cycle
+		var _GORG = 0 ;
+
+		// 0 = clockwise, 1 = ccw. Default draw order is clockwise (0)
+		var _gDir = 0 ;
+
+		// Tracks 'center point' of drawing window
+		// Starts at half DFWIN_SIZE
+		var _iDF = C_DFWIN_SIZE / 2 ;
+
+		// Index within drawing window ... runs from 0 to DFWIN_SIZE
+		// Resets once DFWIN_SIZE is reached, then _iDF is incremented
+		var _iDFLoc = _iDF - C_DFWIN_SIZE / 2 ;
+
+		// Interval for geometry drawing routine
+		// Gets set and cleared dynamically
+		var _IDG ;
+		function main()
+		{
+			// Load up DOM references...
+			_cnvG 	= document.getElementById('g-cnv') ;
+			_ctxG 	= _cnvG.getContext('2d') ;
+
+			_cnvGS 	= document.getElementById('g-sprite') ;
+			_ctxGS 	= _cnvGS.getContext('2d') ;
+
+			// Render GSprite
+			drawGCellSprite() ;
+
+			// Start drawing funky patterns ...
+			doGCycle() ;
+
+			// And keep doing them!
+			window.setInterval('doGCycle()',20000) ;
+		}
+
+		function drawGCellSprite()
+		{
+		    var cR 	= 255 ;
+		    var cG 	= 255 ;
+		    var cB 	= 255 ;
+
+		    var o 	= C_GSPR_O ;
+
+		    // Creating separate vars for readability
+		    var cx  = C_GSPR_R ;
+		    var cy 	= C_GSPR_R ;
+		    var r 	= C_GSPR_R ;
+
+		    var rg 	= _ctxGS.createRadialGradient(cx, cy, 10, cx, cy, r) ;
+
+		    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+		    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+		    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+		    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+
+		    _ctxGS.beginPath() ;
+		    _ctxGS.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+		    _ctxGS.fillStyle = rg ;
+		    _ctxGS.fill() ;
+		}
+
+		function clearGCanvas()
+		{
+			console.log('clearing G canvas') ;
+			_ctxG.clearRect(0,0,C_GCNV_W,C_GCNV_H) ;
+		}
+
+		function doGCycle()
+		{
+			console.log('Starting G cycle...') ;
+			// Clear draw queue, re-randomize oragnic factor
+			_GDQ = [] ;
+			_GORG = randomInt(C_GORG_MIN, C_GORG_MAX) ;
+
+			console.log('GDQ length is '+_GDQ.length) ;
+			var rBase = randomInt(10,30) ;
+			var aOff = 2 * Math.PI / randomInt(1,7) ;
+
+			var cx = C_GCNV_W / 2 ;
+			var cy = C_GCNV_H / 2 ;
+
+			clearGCanvas() ;
+			_cnvG.style.opacity = 1.0 ;
+
+			// Calculate cell coordinates
+			for(var i = 0; i < 3; i++)
+			{
+				console.log('Drawing FOL at index '+i) ;
+				calcFol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+			}
+
+			// One more iteration ... (i will already be incremented from for() loop)
+			console.log('Drawing SOL at index '+i) ;
+			calcSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
+
+			// If direction is reversed (_gDir = 1), reverse array
+			if(_gDir) _GDQ.reverse() ;
+
+			//console.log('Starting draw sequence, DQ size is '+_GDQ.length) ;
+			// Start draw queue processor. Stopped when drawFaded() has no more elements
+			_IDG = window.setInterval('drawFaded()',C_GDF_INT) ;
+
+			// Flip draw direction for next cycle
+			if(!_gDir) _gDir = 1 ;
+			else _gDir = 0 ;
+		}
+
+		function drawFaded()
+		{
+			// If we've reached the end of the draw queue,
+			// Stop drawing, set fade out timer, reset for next cycle
+			if(_iDFLoc >= _GDQ.length)
+			{
+				// Linger briefly, then fade
+				window.setTimeout(function(){_cnvG.style.opacity = 0}, C_GFDELAY) ;
+				window.clearInterval(_IDG) ;
+
+				// Reset draw pointers
+				_iDF = C_DFWIN_SIZE / 2 ;
+				_iDFLoc = _iDF - C_DFWIN_SIZE / 2 ;
+
+				return ;
+			}
+
+			// If we've reached the end of the draw window...
+			// Advance _iDF (center point) to next position
+			// And position iDFLoc to the beginning of the new draw window
+			if(_iDFLoc > _iDF + C_DFWIN_SIZE / 2)
+			{
+				_iDF += C_DFINC ;
+				_iDFLoc = _iDF - C_DFWIN_SIZE  / 2 ;
+
+				return ;
+			}
+
+			// Paint the cell
+			//console.log('Painting cell at _iDFLoc: '+_iDFLoc) ;
+			drawGCell(_GDQ[_iDFLoc][0], _GDQ[_iDFLoc][1], _GDQ[_iDFLoc][2]) ;
+
+			/*
+			for(var i = iMin; i <= iMax; i++)
+			{
+				// If direction == 1 (counterclockwise), reverse draw queue
+				if(_gDir) iLoc = _GDQ.length - i - 1 ;
+
+				// Otherwise, draw normally
+				if(!_gDir) iLoc = i ;
+
+				drawCell(_GDQ[iLoc][0], _GDQ[iLoc][1], _GDQ[iLoc][2]) ;
+			}
+			*/
+
+			_iDFLoc++ ;
+		}
+
+		function drawGCell(cx, cy, rNom)
+		{
+		    // Apply organic factor to nominal radius
+		    var r = rNom * ( randomInt((100 - _GORG),(100 + _GORG)) / 100 ) ;
+		    r = Math.round(r) ;
+
+		    //console.log('Drawing with cx/cy/rNom/r '+cx+'/'+cy+'/'+rNom+' / '+r) ;
+
+		    // Calculate x, y of top left corner relative to center
+		    // Where cell will be placed
+		    var x = cx - r ;
+		    var y = cy - r ;
+
+		    // Calculate width/height of clipping area on sprite canvas
+		    var wCopy = C_GSPR_R * 2 ;
+
+		    _ctxG.drawImage(_cnvGS, 0, 0, wCopy, wCopy, x, y, r * 2, r * 2) ;
+		}
+
+		function calcFol(cx, cy, r, ao){
+		    var a ;
+		    var x ;
+		    var y ;
+
+		    calcSol(cx, cy, r, ao) ;
+
+		    for(var i = 0; i < C_GSEGS; i++){
+		        a = ao + (i + 1) * (2 * Math.PI / C_GSEGS) ;
+
+		        x = Math.round(cx + 2 * r * Math.cos(a)) ;
+		        y = Math.round(cy + 2 * r * Math.sin(a)) ;
+
+		        calcSol(x, y, r, a) ;
+		    }
+		}
+
+		function calcSol(cx, cy, rNom, ao){
+		    var a ;
+		    var x ;
+		    var y ;
+
+		    // Round off radius before pushing into draw queue
+		    _GDQ.push([cx, cy, Math.round(rNom)]) ;
+
+		    for(var i = 0; i < C_GSEGS; i++){
+		        a = ao + (i + 1) * (2 * Math.PI / C_GSEGS) ;
+		        x = Math.round(cx + rNom * Math.cos(a)) ;
+		        y = Math.round(cy + rNom * Math.sin(a)) ;
+		        _GDQ.push([x, y, Math.round(rNom)]) ;
+		    }
+		}
+
+		function randomInt(min, max)
+		{
+		    return Math.floor(Math.random() * (max - min + 1)) + min;
+		}
+	</script>
+</head>
+<body id="thebody">
+	<canvas id="g-cnv" width="512" height="384"></canvas>
+
+	<!-- width/height set to G_GSPR_R * 2 -->
+	<canvas id="g-sprite"		width="240"		height="240"	style="display: none"></canvas>
+	<script>window.setTimeout('main()',300)</script>
+</body>
+</html>
