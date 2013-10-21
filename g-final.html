@@ -99,6 +99,7 @@
 		// Interval for geometry drawing routine
 		// Gets set and cleared dynamically
 		var _IDG ;
+
 		function main()
 		{
 			// Load up DOM references...
@@ -109,7 +110,7 @@
 			_ctxGS 	= _cnvGS.getContext('2d') ;
 
 			// Render GSprite
-			drawGCellSprite() ;
+			renderGCellSprite() ;
 
 			// Start drawing funky patterns ...
 			doGCycle() ;
@@ -118,7 +119,7 @@
 			window.setInterval('doGCycle()',20000) ;
 		}
 
-		function drawGCellSprite()
+		function renderGCellSprite()
 		{
 		    var cR 	= 255 ;
 		    var cG 	= 255 ;
