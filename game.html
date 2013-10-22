@@ -22,6 +22,8 @@
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
 
 <a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
+
+<div 	id="hmt"></div>
 <!--                                  -->
 <!--                 JAVASCRIPT       -->
 <!--                                  -->
@@ -49,6 +51,9 @@ var C_BUB_R4		= 350 ;		// Outer radius of same
 var C_BUBOPAC_INI	= 0.02 ;	// Initial bubble opacity (when it first appears)
 var C_BUBOPAC_MIN	= 0.05 ;	// Min opacity that it fades into
 var C_BUBOPAC_MAX	= 0.15 ;	// Max opacity " " "
+
+var C_BUB_SPINT		= 1000 ;	// Interval (ms) on which spawnBubble() is called
+var C_BUB_SPROB		= 20 ;		// % probability that a bubble will spawn
 
 var C_GCELL_RAD		= 120 ;		// G sprite cell radius (canvas coords)
 
@@ -157,6 +162,9 @@ var _SHARDREG 		= [] ;
 var _elSC ;						// Container <div>'s for shards, bubbles
 var _elBC ;
 
+var _HIT = 0 ;
+var _MIS = 0 ;
+var _TOT = 0 ;
 
 function main()
 {
@@ -185,23 +193,46 @@ function main()
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
 
 	// Fire up other tickers
-	window.setInterval('updateShardReg()',100) ;
-	window.setInterval('shardRegGC()',2000) ;
+	window.setInterval('updateShardReg()', 100) ;
+	window.setInterval('shardRegGC()', 2000) ;
+	window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+}
+
+function updateHMT()
+{
+	document.getElementById('hmt').innerHTML = 'HIT: '+_HIT+' | MISS: '+_MIS+' | TOT: '+_TOT ;
 }
 
 function doClick(ev)
 {
-	var x = ev.pageX ;
-	var y = ev.pageY ;
+	var t = ev.target ;
+	if(t.id == 'bubble-container') return 0 ;
 
-	console.log('doClick at '+x+', '+y) ;
+	console.log('doClick on bubble, target ...') ;
+	console.log(t) ;
 
-	var r = randomInt(50,100) ;	// nominal radius
+	var rect = t.getBoundingClientRect();
+	console.log(rect.top, rect.right, rect.bottom, rect.left);
+
+	var cx = Math.floor(rect.left + (rect.right - rect.left) / 2 ) ;
+	var cy = Math.floor(rect.top + (rect.bottom - rect.top) / 2 ) ;
+	console.log('Calculated center point: '+cx+', '+cy) ;
+
 	var p = randomInt(3,9) ;	// particle count
 	var i = randomInt(0,6) ;	// sprite selection
 
-	//spawnShardCanvas(x, y, r, p) ;
-	spawnBubble(x, y, r, i) ;
+	// Trigger explosion
+	spawnShardCanvas(cx, cy, 200, p) ;
+
+	// Eliminate bubble canvas, mark it as "exploded"
+	// (which gets picked up by auto-explode timeout set on spawnBubble())
+	t.rel = 'exp' ;
+	t.parentNode.removeChild(t) ;
+
+	_HIT++ ;
+	updateHMT() ;
+
+	//spawnBubble(x, y, r, i) ;
 }
 
 function doCopy()
@@ -448,13 +479,24 @@ function calcSol(cx, cy, rNom, ao){
 
 // Spawns a bubble centered at screen coordinates x, y
 // With radius r, final opacity o, and shape 'i' (corresponds to bubble sprite index)
-function spawnBubble(x, y, r, i)
+function spawnBubble()
 {
+	console.log('spawnBubble() called ...') ;
+	var t = randomInt(0,100) ;
+	if(t > C_BUB_SPROB) return 0 ;
+
+	console.log('Spawning bubble ...') ;
+
 	// Clipping region on sprite
 	var x1, x2, w ;
 
 	var cnv 	= document.createElement('canvas') ;
 	var ctx 	= cnv.getContext('2d') ;
+
+	var i = randomInt(0,6) ;		// bubble sprite selection
+
+	// Calculate bubble radius
+	var r = randomInt(50, 100) ;	// nominal radius
 
 	// Calculate radius and angle of propagation
 	var r1      = randomInt(C_BUB_R1, C_BUB_R2) ;
@@ -493,6 +535,9 @@ function spawnBubble(x, y, r, i)
 
 	_elBC.appendChild(cnv) ;
 
+	_TOT++ ;
+	updateHMT() ;
+
 	// Re-set positions to animate....
 	window.setTimeout(function(){
 		cnv.style.webkitTransform = 'scale(1.4,1.4)' ;
@@ -503,8 +548,14 @@ function spawnBubble(x, y, r, i)
 
 	// Set lifecycle timer...
 	window.setTimeout(function(){
-		spawnShardCanvas((xFin - r), (yFin - r), 130, randomInt(3,7)) ;
+		//if(!cnv){console.log('Bubble already popped'); return 0;}
+		if(cnv.rel == 'exp'){console.log('Bubble already popped'); return 0;}
+
+		spawnShardCanvas(xFin, yFin, 130, randomInt(3,7)) ;
 		cnv.style.display = 'none' ;
+
+		_MIS++ ;
+		updateHMT() ;
 	},5000) ;
 }
 
@@ -542,8 +593,6 @@ function spawnShardCanvas(cx, cy, rNom, p)
 	elCnv.style.left 		= ( cx - rNom - C_SHARDPAD ) + 'px' ;
 	elCnv.style.top 		= ( cy - rNom - C_SHARDPAD ) + 'px' ;
 
-	elCnv.style.border		= '2px solid yellow' ;
-
 	elCtx = elCnv.getContext('2d') ;
 
 	srTmp.push(elCnv) ;
@@ -579,7 +628,7 @@ function spawnShardCanvas(cx, cy, rNom, p)
 function updateShardReg()
 {
 	if(!_SHARDREG.length) return 0 ;
-	console.log(_SHARDREG) ;
+	//console.log(_SHARDREG) ;
 	var srEnt ;
 	var cnv ;
 	var ctx ;
@@ -895,6 +944,21 @@ function randomInt(min, max)
 .bubble-canvas
 {
 	-webkit-transition: all 5s ;
+}
+
+#hmt
+{
+	position: absolute ;
+	display: block ;
+	z-index: 2000 ;
+	right: 20px  ;
+	top: 20px ;
+	width: 150px ;
+	height: 30px ;
+	font-size: 11px ;
+	font-family: verdana, arial, helvetica, sans-serif ;
+	background: white ;
+	text-align: center ;
 }
 
 </style>
