@@ -35,8 +35,20 @@
 
 var C_TAPEVENT		= 'touchstart' ;
 
-var C_BUBRAD 		= 30 ;		// Bubble radius (native canvas coords)
+var C_SCRWID		= 1024 ;
+var C_SCRHGT		= 768 ;
+
+var C_BUBRAD 		= 30 ;		// Bubble radius on sprite (native canvas coords)
 var C_BUB_CRAD 		= 5 ;		// Bubble corner radius (canvas coords)
+var C_BUB_R1		= 50 ;		// Inner radius defining bubble propagation start region
+var C_BUB_R2		= 100 ;		// Outer radius of same
+
+var C_BUB_R3		= 250 ;		// Inner radius defining bubble propagation end region
+var C_BUB_R4		= 350 ;		// Outer radius of same
+
+var C_BUBOPAC_INI	= 0.02 ;	// Initial bubble opacity (when it first appears)
+var C_BUBOPAC_MIN	= 0.05 ;	// Min opacity that it fades into
+var C_BUBOPAC_MAX	= 0.15 ;	// Max opacity " " "
 
 var C_GCELL_RAD		= 120 ;		// G sprite cell radius (canvas coords)
 
@@ -128,9 +140,6 @@ var C_BLSTRAD_ORG	= 30 ; 		// Shard "blast radius" organic factor (percentage of
 var C_SVELOC		= 30 ;		// Shard velocity expressed as # of ticks to full radius
 var C_SHARDPAD 		= 30 ;		// Padding beyond rNom on shard canvas (should allow for max variance)
 
-var C_BUBOPAC_MIN	= 0.05 ;
-var C_BUBOPAC_MAX	= 0.15 ;
-
 var _cnvSS ;					// Canvas / Context for shard sprite
 var _ctxSS ;
 
@@ -193,7 +202,6 @@ function doClick(ev)
 
 	//spawnShardCanvas(x, y, r, p) ;
 	spawnBubble(x, y, r, i) ;
-	spawnShardCanvas(x, y, 130, randomInt(3,7)) ;
 }
 
 function doCopy()
@@ -439,14 +447,31 @@ function calcSol(cx, cy, rNom, ao){
 ****************************************************/
 
 // Spawns a bubble centered at screen coordinates x, y
-// With radius r and shape 'i' (corresponds to bubble sprite index)
+// With radius r, final opacity o, and shape 'i' (corresponds to bubble sprite index)
 function spawnBubble(x, y, r, i)
 {
+	// Clipping region on sprite
 	var x1, x2, w ;
 
 	var cnv 	= document.createElement('canvas') ;
 	var ctx 	= cnv.getContext('2d') ;
 
+	// Calculate radius and angle of propagation
+	var r1      = randomInt(C_BUB_R1, C_BUB_R2) ;
+	var r2      = randomInt(C_BUB_R3, C_BUB_R4) ;
+
+	// Approximate ... 2PI/1000 is virtually zero ..
+	var a       = randomInt(0, (2 * Math.PI) * 100) / 100 ;
+	console.log('Spawn angle, r1, r2 '+a+', '+r1+', '+r2) ;
+
+	// Calculate initial/final x,y position
+	var xIni	= Math.floor(C_SCRWID / 2 + r1 * Math.cos(a)) ;
+	var yIni	= Math.floor(C_SCRHGT / 2 + r1 * Math.sin(a)) ;
+
+	var xFin	= Math.floor(C_SCRWID / 2 + r2 * Math.cos(a)) ;
+	var yFin	= Math.floor(C_SCRHGT / 2 + r2 * Math.sin(a)) ;
+
+	console.log('Spawning bubble with xIni/yIni/xFin/yFin '+xIni+'/'+yIni+'/'+xFin+'/'+yFin) ;
 	cnv.className = 'bubble-canvas' ;
 	cnv.width 	= 2 * r ;
 	cnv.height 	= 2 * r ;
@@ -454,16 +479,16 @@ function spawnBubble(x, y, r, i)
 	cnv.style.width = 2 * r + 'px' ;
 	cnv.style.height = 2 * r + 'px' ;
 	cnv.style.position = 'absolute' ;
-	cnv.style.left 	= (x - r) + 'px' ;
-	cnv.style.top 	= (y - r) + 'px' ;
-	cnv.style.opacity = randomInt(C_BUBOPAC_MIN * 100, C_BUBOPAC_MAX * 100) / 100 ;
+	cnv.style.left 	= (xIni - r) + 'px' ;
+	cnv.style.top 	= (yIni - r) + 'px' ;
+	cnv.style.opacity = C_BUBOPAC_INI ;
 	cnv.style.webkitTransform = 'rotate('+randomInt(0,360)+'deg)' ;
 
 	x1 = C_BS_IDX[i] ;
 	x2 = C_BS_IDX[i + 1] ;
 
-	w = x2 - x1;
-	console.log('Copying from coords '+x1+', '+x2+', '+w) ;
+	w = x2 - x1 ;
+	//console.log('Copying from coords '+x1+', '+x2+', '+w) ;
 	ctx.drawImage(_cnvBS, x1, 0, w, C_BUBRAD * 2, 0, 0, 2 * r, 2 * r) ;
 
 	_elBC.appendChild(cnv) ;
@@ -471,7 +496,16 @@ function spawnBubble(x, y, r, i)
 	// Re-set positions to animate....
 	window.setTimeout(function(){
 		cnv.style.webkitTransform = 'scale(1.4,1.4)' ;
+		cnv.style.left = (xFin - r) + 'px' ;
+		cnv.style.top = (yFin - r) + 'px' ;
+		cnv.style.opacity = randomInt(C_BUBOPAC_MIN * 100, C_BUBOPAC_MAX * 100) / 100 ;
 	},50) ;
+
+	// Set lifecycle timer...
+	window.setTimeout(function(){
+		spawnShardCanvas((xFin - r), (yFin - r), 130, randomInt(3,7)) ;
+		cnv.style.display = 'none' ;
+	},5000) ;
 }
 
 
@@ -860,7 +894,7 @@ function randomInt(min, max)
 
 .bubble-canvas
 {
-	-webkit-transition: -webkit-transform 10s ;
+	-webkit-transition: all 5s ;
 }
 
 </style>
