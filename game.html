@@ -125,8 +125,8 @@ var C_BS_IDX		= [0, 46, 106, 165, 226, 286, 345, 404] ;
 
 var C_SDIST_ORG		= 30 ; 		// Shard distribution "organic" factor (+/- this many degrees)
 var C_BLSTRAD_ORG	= 30 ; 		// Shard "blast radius" organic factor (percentage of nominal radius)
-var C_SVELOC		= 20 ;		// Shard velocity expressed as # of ticks to full radius
-var C_SHARDPAD 		= 10 ;		// Padding beyond rNom on shard canvas
+var C_SVELOC		= 30 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SHARDPAD 		= 30 ;		// Padding beyond rNom on shard canvas (should allow for max variance)
 
 var C_BUBOPAC_MIN	= 0.05 ;
 var C_BUBOPAC_MAX	= 0.15 ;
@@ -175,9 +175,9 @@ function main()
 	doGCycle() ;
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
 
-	//window.setInterval('updateShardReg()',250) ;
-
-	
+	// Fire up other tickers
+	window.setInterval('updateShardReg()',100) ;
+	window.setInterval('shardRegGC()',2000) ;
 }
 
 function doClick(ev)
@@ -193,6 +193,7 @@ function doClick(ev)
 
 	//spawnShardCanvas(x, y, r, p) ;
 	spawnBubble(x, y, r, i) ;
+	spawnShardCanvas(x, y, 130, randomInt(3,7)) ;
 }
 
 function doCopy()
@@ -507,6 +508,8 @@ function spawnShardCanvas(cx, cy, rNom, p)
 	elCnv.style.left 		= ( cx - rNom - C_SHARDPAD ) + 'px' ;
 	elCnv.style.top 		= ( cy - rNom - C_SHARDPAD ) + 'px' ;
 
+	elCnv.style.border		= '2px solid yellow' ;
+
 	elCtx = elCnv.getContext('2d') ;
 
 	srTmp.push(elCnv) ;
@@ -542,17 +545,17 @@ function spawnShardCanvas(cx, cy, rNom, p)
 function updateShardReg()
 {
 	if(!_SHARDREG.length) return 0 ;
-
+	console.log(_SHARDREG) ;
 	var srEnt ;
 	var cnv ;
 	var ctx ;
 	var rCur ;
-	var x,y ; // xy position of particle being redrawn (calculated from rCur, a, and cnv center)
+	var x, y ; // xy position of particle being redrawn (calculated from rCur, a, and cnv center)
 	var t ;
 	var r ;
 
 	// Hide shards
-	_elSC.style.display = 'none' ;
+	//_elSC.style.display = 'none' ;
 
 	// Redraw canvases
 	for(var i = 0; i < _SHARDREG.length; i++)
@@ -584,11 +587,11 @@ function updateShardReg()
 
 			// Redraw shard, with a random number of edges
 			// ... morphs as it blasts outwards
-			drawShard(ctx, x, y, randomInt(0,1)) ;
+			drawShard(ctx, x, y, randomInt(0,3)) ;
 		}
 	}
 
-	window.setTimeout(function(){_elSC.style.display = 'block'}, 100) ;
+	//window.setTimeout(function(){_elSC.style.display = 'block'}, 50) ;
 }
 
 // i refers indices in shard sprite 0 = 3sided, 1 = 4sided ... 3 = 6sided
@@ -596,29 +599,20 @@ function updateShardReg()
 function drawShard(ctx, x, y, i)
 {
 	var x1, x2, w ;
-	console.log('drawShard() called | x:'+x+', y:'+y+', i:'+i) ;
-	console.log(ctx) ;
+	//console.log('drawShard() called | x:'+x+', y:'+y+', i:'+i) ;
+	//console.log(ctx) ;
 
 	x1 = C_SS_IDX[i] ;
 	x2 = C_SS_IDX[i + 1] ;
 
 	w = x2 - x1;
  
- 	// Copy pixel block from shard sprite
-	ctx.drawImage(_cnvSS, x1, 0, w, C_SHDRAD * 2, x, y, w, C_SHDRAD * 2) ;
+ 	// Copy pixel block from shard sprite (scale up by 2x for pixellated FX)
+	ctx.drawImage(_cnvSS, x1, 0, w, C_SHDRAD * 2, x, y, w * 2, C_SHDRAD * 4) ;
 }
 
 function shardRegGC()
 {
-	//if(!_SHARDREG.length && !_TTICK_ISSLOW) return ;
-
-	// If shardreg is empty and tween ticker is on slow, reset it to regular
-	// if(!_SHARDREG.length && _TTICK_ISSLOW)
-	// {
-	// 	ttickReg() ;
-	// 	return ;
-	// }
-
 	var srEnt ;
 	var cnv ;
 
