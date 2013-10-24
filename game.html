@@ -12,8 +12,11 @@
 <!--                                  -->
 <!--                 MARKUP           -->
 <!--                                  -->
-<div 	id="shard-container"					style="z-index: 1500"></div>
+
+<div 	id="revolver-cyl"						style="z-index: 2500"></div>
+
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
+<div 	id="shard-container"					style="z-index: 1500"></div>
 
 <canvas id="g-cnv" 				width="512"		height="384" 	style="z-index: 500"></canvas>
 
@@ -22,18 +25,13 @@
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
 
 <a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
+<a style="position: absolute; z-index: 2000; left: 200px" href="javascript:unloadCyl()">UNLOAD</a>
 
 <div 	id="hmt"></div>
 <!--                                  -->
 <!--                 JAVASCRIPT       -->
 <!--                                  -->
 <script>
-
-/***************************************************
-*
-*					 Primary Logic
-*
-****************************************************/
 
 var C_TAPEVENT		= 'touchstart' ;
 
@@ -50,7 +48,7 @@ var C_BUB_R4		= 350 ;		// Outer radius of same
 
 var C_BUBOPAC_INI	= 0.02 ;	// Initial bubble opacity (when it first appears)
 var C_BUBOPAC_MIN	= 0.05 ;	// Min opacity that it fades into
-var C_BUBOPAC_MAX	= 0.15 ;	// Max opacity " " "
+var C_BUBOPAC_MAX	= 0.10 ;	// Max opacity " " "
 
 var C_BUB_SPINT		= 1000 ;	// Interval (ms) on which spawnBubble() is called
 var C_BUB_SPROB		= 20 ;		// % probability that a bubble will spawn
@@ -107,6 +105,7 @@ var C_GFDELAY 		= 4400 ;
 // (includes allowance for draw time, fadeout time, and blank space)
 var C_GCYC_INT 		= 20000 ;
 
+
 // "Geometry Draw Queue"
 // Contains center points, radii for geometry cells
 // Ordered in the correct sequence for drawing
@@ -142,7 +141,7 @@ var C_BS_IDX		= [0, 46, 106, 165, 226, 286, 345, 404] ;
 
 var C_SDIST_ORG		= 30 ; 		// Shard distribution "organic" factor (+/- this many degrees)
 var C_BLSTRAD_ORG	= 30 ; 		// Shard "blast radius" organic factor (percentage of nominal radius)
-var C_SVELOC		= 30 ;		// Shard velocity expressed as # of ticks to full radius
+var C_SVELOC		= 25 ;		// Shard velocity expressed as # of ticks to full radius
 var C_SHARDPAD 		= 30 ;		// Padding beyond rNom on shard canvas (should allow for max variance)
 
 var _cnvSS ;					// Canvas / Context for shard sprite
@@ -162,9 +161,18 @@ var _SHARDREG 		= [] ;
 var _elSC ;						// Container <div>'s for shards, bubbles
 var _elBC ;
 
-var _HIT = 0 ;
-var _MIS = 0 ;
-var _TOT = 0 ;
+var _HIT 			= 0 ;
+var _MIS 			= 0 ;
+var _TOT 			= 0 ;
+
+var C_WCYL			= 130 ;		// Width/Height of revolver cylinder (pixels)
+var C_RCBR			= 34 ;		// Radius from center to chambers
+var C_WBUL			= 33 ;		// Width/Height of bullets (pixels)
+var C_CCNT			= 5 ;		// Chamber count (used to calculate angle increments)
+var C_LDEL			= 750 ;		// Delay before displaying bullet (allow cyl to rotate)
+var _ICYL			= 0 ;		// Current rotation index of cylinder
+
+var _elCyl ;
 
 function main()
 {
@@ -180,10 +188,13 @@ function main()
 	_cnvG 	= document.getElementById('g-cnv') ;
 	_ctxG 	= _cnvG.getContext('2d') ;
 
-	_elSC = document.getElementById('shard-container') ;
+	_elSC 	= document.getElementById('shard-container') ;
 
-	_elBC = document.getElementById('bubble-container') ;
+	_elBC 	= document.getElementById('bubble-container') ;
 	_elBC.addEventListener(C_TAPEVENT, doClick, false) ;
+
+	_elCyl 	= document.getElementById('revolver-cyl') ;
+	_elCyl.addEventListener(C_TAPEVENT, abClick, false) ;
 
 	renderBubbleSprite() ;
 	renderGCellSprite() ;
@@ -716,6 +727,102 @@ function shardRegGC()
 }
 
 
+/***************************************************
+*
+*					 Revolver Routines
+*
+****************************************************/
+
+function abClick(e)
+{
+	console.log('Adding bullet at index '+_ICYL) ;
+	if(e.pageX < 512) addBullet(1) ;
+	else(addBullet()) ;
+}
+
+function addBullet(isRear)
+{
+	var src ;
+	var ang ;
+
+	if(isRear) src = 'img/bullet-rear.png' ;
+	else src = 'img/bullet-front.png' ;
+
+	var el = document.createElement('img') ;
+	var x = Math.round(C_WCYL/2) ;
+	var y = x ;
+
+	// 0 radians is directly "due east", offset it to make it "due north"
+	ang = Math.PI / 2 + _ICYL * 2 * Math.PI / C_CCNT ;
+
+	x = Math.round(x + C_RCBR * Math.cos(ang) - C_WBUL / 2 ) ;
+	y = Math.round(y - C_RCBR * Math.sin(ang) - C_WBUL / 2 ) ;
+
+	el.style.position 	= 'absolute' ;
+	el.src 				= src ;
+	el.style.left 		= x + 'px' ;
+	el.style.top 		= y + 'px' ;
+	el.style.opacity 	= 0 ;
+	el.className		= 'bullet' ;
+
+	// Randomize rotation (organic detail for bullet rears... lettering, etc)
+	el.style.webkitTransform = 'rotate(' + randomInt(0,360) + 'deg)' ;
+
+	// Rotate cylinder into next position (re-adjust angle to "due east" origin)
+	ang -= Math.PI / 2 ;
+	console.log('Rotating cylinder to '+radToDeg(ang)+'deg') ;
+	_elCyl.style.webkitTransform = 'rotate(' + radToDeg(ang) + 'deg)' ;
+
+	// Insert bullet ... then fade it in, after a brief delay
+	_elCyl.appendChild(el) ;
+	window.setTimeout(function(){
+		window.setTimeout(function(){el.style.opacity = 1},50) ;
+	},(_ICYL ? C_LDEL : 0)) ;
+
+	if(isRear) _ICYL-- ;
+	else _ICYL++ ;
+
+	if(_ICYL > (C_CCNT - 1)) window.setTimeout(function(){alert('DEATH TIME!')},1500) ;
+	if(_ICYL < (-1 * C_CCNT + 1)) window.setTimeout(function(){alert('FIREWORKS TIME!')},1500) ;
+}
+
+function unloadCyl()
+{
+	var bullets = _elCyl.children ;
+	var el ;
+
+	for(var i = 0; i < bullets.length; i++)
+	{
+		el = bullets[i] ;
+		el.style.opacity = 0 ;
+		el.alt = 'GC' ;
+	}
+
+	_elCyl.style.webkitTransform = 'rotate(0deg)' ;
+
+	_ICYL = 0 ;
+
+	// Call garbage collector to remove bullet <img> elements
+	// Call it 3x, just to make sure everything's gone ...
+	// Total eff'n hack, but for some reason it misses a couple the 1st time :p
+	window.setTimeout('unloadCylGC()', 2000) ;
+	window.setTimeout('unloadCylGC()', 2100) ;
+	window.setTimeout('unloadCylGC()', 2200) ;
+}
+
+function unloadCylGC()
+{
+	var bullets = _elCyl.children ;
+	var el ;
+
+	for(var i = 0; i < bullets.length; i++)
+	{
+		el = bullets[i] ;
+		if(el.alt == 'GC') el.parentNode.removeChild(el) ;
+	}
+}
+
+
 
 
 
@@ -869,6 +976,18 @@ function getRoundedPoint(x1, y1, x2, y2, cRad, first)
   	return [ Math.round(x1 + (idx * (x2 - x1))), Math.round(y1 + (idx * (y2 - y1))) ] ;
 }
 
+function degToRad(d)
+{
+	return (d / 360) * 2 * Math.PI ;
+}
+
+function radToDeg(r)
+{
+	var d = (r / (2 * Math.PI)) * 360
+	console.log('converting to degrees: '+r+', '+d) ;
+	return d ;
+}
+
 function randomInt(min, max)
 {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -929,6 +1048,24 @@ function randomInt(min, max)
 	opacity: 1.0 ;
 
 	top: 400px ;
+}
+
+#revolver-cyl
+{
+	position: absolute ;
+	width: 130px ;
+	height: 130px ;
+	background: url('img/revolver-cyl.png') ;
+	left: 447px ;
+	top: 15px ;
+
+	-webkit-transition-timing-function: ease-in-out ;
+	-webkit-transition: -webkit-transform 1s;
+}
+
+.bullet
+{
+	-webkit-transition: opacity 0.5s;
 }
 
 #g-cnv{
