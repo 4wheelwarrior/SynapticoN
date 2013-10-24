@@ -171,7 +171,8 @@ var C_WBUL			= 33 ;		// Width/Height of bullets (pixels)
 var C_CCNT			= 5 ;		// Chamber count (used to calculate angle increments)
 var C_LDEL			= 750 ;		// Delay before displaying bullet (allow cyl to rotate)
 var _ICYL			= 0 ;		// Current rotation index of cylinder
-
+var _HMQ			= [] ;		// Hit/Miss queue
+var _HMQLAST		= '' ;		// Last entry processed from HMQ
 var _elCyl ;
 
 function main()
@@ -207,6 +208,7 @@ function main()
 	window.setInterval('updateShardReg()', 100) ;
 	window.setInterval('shardRegGC()', 2000) ;
 	window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+	window.setInterval('processHMQ()',100) ;
 }
 
 function updateHMT()
@@ -239,6 +241,9 @@ function doClick(ev)
 	// (which gets picked up by auto-explode timeout set on spawnBubble())
 	t.rel = 'exp' ;
 	t.parentNode.removeChild(t) ;
+
+	// Load a 'rear' bullet
+	_HMQ.push('H') ;
 
 	_HIT++ ;
 	updateHMT() ;
@@ -564,6 +569,9 @@ function spawnBubble()
 
 		spawnShardCanvas(xFin, yFin, 130, randomInt(3,7)) ;
 		cnv.style.display = 'none' ;
+		cnv.parentNode.removeChild(cnv) ;
+
+		_HMQ.push('M') ;
 
 		_MIS++ ;
 		updateHMT() ;
@@ -822,6 +830,18 @@ function unloadCylGC()
 	}
 }
 
+function processHMQ()
+{
+	if(!_HMQ.length) return ;
+
+	var ent = _HMQ.shift() ;
+
+	if(_HMQLAST != ent) unloadCyl() ;
+
+	if(ent == 'H'){ addBullet(1); _HMQLAST = 'H' }
+	if(ent == 'M'){ addBullet(); _HMQLAST = 'M' }
+}
+
 
 
 
@@ -1058,6 +1078,8 @@ function randomInt(min, max)
 	background: url('img/revolver-cyl.png') ;
 	left: 447px ;
 	top: 15px ;
+
+	border: 2px solid yellow ;
 
 	-webkit-transition-timing-function: ease-in-out ;
 	-webkit-transition: -webkit-transform 1s;
