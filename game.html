@@ -185,8 +185,7 @@ var _ICYL			= 0 ;		// Current rotation index of cylinder
 var _HMQ			= [] ;		// Hit/Miss queue
 var _HMQLAST		= '' ;		// Last entry processed from HMQ
 var _elCyl ;
-
-var _elSparks ;
+var _BULLETS		= [] ;		// Bullet elements
 
 var _bgIdx 			= 0 ;		// Background image we're currently on
 var _INBG ;
@@ -211,11 +210,12 @@ function main()
 	_elBC.addEventListener(C_TAPEVENT, doClick, false) ;
 
 	_elCyl 	= document.getElementById('revolver-cyl') ;
-	//_elCyl.addEventListener(C_TAPEVENT, abClick, false) ;
 
 	renderBubbleSprite() ;
 	renderGCellSprite() ;
 	renderShardSprite() ;
+
+	initBullets() ;
 
 	doGCycle() ;
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
@@ -801,30 +801,63 @@ function abClick(e)
 	else(addBullet()) ;
 }
 
+// Distribute bullet images around revolver chambers
+function initBullets()
+{
+	var x, y ;
+	var ang ;
+	var el ;
+
+	for(var i = 0; i < 5; i++)
+	{
+		el = document.createElement('img') ;
+		
+		// Initialize x,y to center of cylinder
+		x = Math.round(C_WCYL/2) ;
+		y = x ;
+
+		ang = Math.PI / 2 + i * 2 * Math.PI / C_CCNT ;
+
+		x = Math.round( x + C_RCBR * Math.cos(ang) - C_WBUL / 2 ) ;
+		y = Math.round( y - C_RCBR * Math.sin(ang) - C_WBUL / 2 ) ;
+		
+		el.src 				= 'img/bullet-blank.png' ;
+		el.style.position 	= 'absolute' ;
+		el.style.left 		= x + 'px' ;
+		el.style.top 		= y + 'px' ;
+		el.style.opacity 	= 0 ;
+		el.className		= 'bullet' ;
+		el.id    			= 'b' + i ;
+
+		_elCyl.appendChild(el) ;
+		_BULLETS.push(el) ;
+	}
+}
+
 function addBullet(isRear)
 {
 	var src ;
 	var ang ;
+	var bIdx ;
 
 	if(isRear) src = 'img/bullet-rear.png' ;
 	else src = 'img/bullet-front.png' ;
 
-	var el = document.createElement('img') ;
-	var x = Math.round(C_WCYL/2) ;
-	var y = x ;
-
-	// 0 radians is directly "due east", offset it to make it "due north"
+	// Calculate rotation angle of cylinder
 	ang = Math.PI / 2 + _ICYL * 2 * Math.PI / C_CCNT ;
 
-	x = Math.round(x + C_RCBR * Math.cos(ang) - C_WBUL / 2 ) ;
-	y = Math.round(y - C_RCBR * Math.sin(ang) - C_WBUL / 2 ) ;
+	// OK... so _ICYL is used for calculating cylinder angle, primarily ...
+	// how do we calculate the actual INDEX of the bullet to light up?
 
-	el.style.position 	= 'absolute' ;
-	el.src 				= src ;
-	el.style.left 		= x + 'px' ;
-	el.style.top 		= y + 'px' ;
-	el.style.opacity 	= 0 ;
-	el.className		= 'bullet' ;
+	if(_ICYL < 0) 	bIdx = _ICYL + 5 ;
+	if(_ICYL == 0) 	bIdx = 0 ;
+	if(_ICYL > 0) 	bIdx = _ICYL ;
+
+	console.log('Getting index for bIdx '+bIdx) ;
+	var el = _BULLETS[bIdx] ;
+
+	// Set image source depending on front/rear facing ...
+	el.src = src ;
 
 	// Randomize rotation (organic detail for bullet rears... lettering, etc)
 	el.style.webkitTransform = 'rotate(' + randomInt(0,360) + 'deg)' ;
@@ -834,8 +867,7 @@ function addBullet(isRear)
 	console.log('Rotating cylinder to '+radToDeg(ang)+'deg') ;
 	_elCyl.style.webkitTransform = 'rotate(' + radToDeg(ang) + 'deg)' ;
 
-	// Insert bullet ... then fade it in, after a brief delay
-	_elCyl.appendChild(el) ;
+	// Fade in appropriate bullet, after short delay (allow for rotation)
 	window.setTimeout(function(){
 		window.setTimeout(function(){el.style.opacity = 1},50) ;
 	},(_ICYL ? C_LDEL : 0)) ;
@@ -843,6 +875,7 @@ function addBullet(isRear)
 	if(isRear) _ICYL-- ;
 	else _ICYL++ ;
 
+	// TODO: detect this elsewhere ....
 	if(_ICYL > (C_CCNT - 1)) window.setTimeout(function(){
 		alert('DEATH TIME!') ;
 		unloadCyl() ;
@@ -856,38 +889,17 @@ function addBullet(isRear)
 
 function unloadCyl()
 {
-	var bullets = _elCyl.children ;
 	var el ;
 
-	for(var i = 0; i < bullets.length; i++)
+	for(var i = 0; i < 5; i++)
 	{
-		el = bullets[i] ;
-		el.style.opacity = 0 ;
-		el.alt = 'GC' ;
+		el = _BULLETS[i] ;
+		el.src = 'img/bullet-blank.png' ;
+		el.style.opacity = 0 ;	
 	}
 
 	_elCyl.style.webkitTransform = 'rotate(0deg)' ;
-
 	_ICYL = 0 ;
-
-	// Call garbage collector to remove bullet <img> elements
-	// Call it 3x, just to make sure everything's gone ...
-	// Total eff'n hack, but for some reason it misses a couple the 1st time :p
-	window.setTimeout('unloadCylGC()', 2000) ;
-	window.setTimeout('unloadCylGC()', 2100) ;
-	window.setTimeout('unloadCylGC()', 2200) ;
-}
-
-function unloadCylGC()
-{
-	var bullets = _elCyl.children ;
-	var el ;
-
-	for(var i = 0; i < bullets.length; i++)
-	{
-		el = bullets[i] ;
-		if(el.alt == 'GC') el.parentNode.removeChild(el) ;
-	}
 }
 
 function processHMQ()
