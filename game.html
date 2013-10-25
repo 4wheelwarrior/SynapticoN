@@ -14,7 +14,6 @@
 <!--                                  -->
 
 <div 	id="revolver-cyl"						style="z-index: 2500"></div>
-
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
 <div 	id="shard-container"					style="z-index: 1500"></div>
 
@@ -187,6 +186,8 @@ var _HMQ			= [] ;		// Hit/Miss queue
 var _HMQLAST		= '' ;		// Last entry processed from HMQ
 var _elCyl ;
 
+var _elSparks ;
+
 var _bgIdx 			= 0 ;		// Background image we're currently on
 var _INBG ;
 
@@ -210,7 +211,7 @@ function main()
 	_elBC.addEventListener(C_TAPEVENT, doClick, false) ;
 
 	_elCyl 	= document.getElementById('revolver-cyl') ;
-	_elCyl.addEventListener(C_TAPEVENT, abClick, false) ;
+	//_elCyl.addEventListener(C_TAPEVENT, abClick, false) ;
 
 	renderBubbleSprite() ;
 	renderGCellSprite() ;
@@ -270,17 +271,16 @@ function doClick(ev)
 		return 0 ;
 	}
 
-	console.log('doClick on bubble, target ...') ;
-	console.log(t) ;
+	t.style.opacity = 1 ;
 
 	var rect = t.getBoundingClientRect();
-	console.log(rect.top, rect.right, rect.bottom, rect.left);
+	//console.log(rect.top, rect.right, rect.bottom, rect.left);
 
 	var cx = Math.floor(rect.left + (rect.right - rect.left) / 2 ) ;
 	var cy = Math.floor(rect.top + (rect.bottom - rect.top) / 2 ) ;
-	console.log('Calculated center point: '+cx+', '+cy) ;
+	//console.log('Calculated center point: '+cx+', '+cy) ;
 
-	var p = randomInt(3,9) ;	// particle count
+	var p = randomInt(3,7) ;	// particle count
 	var i = randomInt(0,6) ;	// sprite selection
 
 	// Trigger explosion
@@ -288,16 +288,16 @@ function doClick(ev)
 
 	// Eliminate bubble canvas, mark it as "exploded"
 	// (which gets picked up by auto-explode timeout set on spawnBubble())
-	t.rel = 'exp' ;
-	t.parentNode.removeChild(t) ;
+	window.setTimeout(function(){
+		t.rel = 'exp' ;
+		t.parentNode.removeChild(t) ;
+	},100) ;
 
 	// Load a 'rear' bullet
 	_HMQ.push('H') ;
 
 	_HIT++ ;
 	updateHMT() ;
-
-	//spawnBubble(x, y, r, i) ;
 }
 
 function doCopy()
@@ -710,7 +710,7 @@ function updateShardReg()
 	var r ;
 
 	// Hide shards
-	_elSC.style.display = 'none' ;
+	window.setTimeout(function(){_elSC.style.display = 'none'}, 50) ;
 
 	// Redraw canvases
 	for(var i = 0; i < _SHARDREG.length; i++)
@@ -746,7 +746,7 @@ function updateShardReg()
 		}
 	}
 
-	window.setTimeout(function(){_elSC.style.display = 'block'}, 100) ;
+	window.setTimeout(function(){_elSC.style.display = 'block'}, 150) ;
 }
 
 // i refers indices in shard sprite 0 = 3sided, 1 = 4sided ... 3 = 6sided
@@ -1171,7 +1171,7 @@ function randomInt(min, max)
 
 .bubble-canvas
 {
-	-webkit-transition: all 10s ;
+	-webkit-transition: opacity 10s, -webkit-transform 10s ;
 }
 
 #hmt
