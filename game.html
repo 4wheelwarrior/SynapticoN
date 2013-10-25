@@ -220,10 +220,10 @@ function main()
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
 
 	// Fire up other tickers
-	window.setInterval('updateShardReg()', 100) ;
+	window.setInterval('updateShardReg()', 200) ;
 	window.setInterval('shardRegGC()', 2000) ;
 	window.setInterval('spawnBubble()', C_BUB_SPINT) ;
-	window.setInterval('processHMQ()',100) ;
+	window.setInterval('processHMQ()', 100) ;
 
 	_INBG = window.setInterval('nextBG()',60000) ;
 }
@@ -263,7 +263,12 @@ function updateHMT()
 function doClick(ev)
 {
 	var t = ev.target ;
-	if(t.id == 'bubble-container') return 0 ;
+
+	if(t.className != 'bubble-canvas')
+	{
+		_HMQ.push('M') ;
+		return 0 ;
+	}
 
 	console.log('doClick on bubble, target ...') ;
 	console.log(t) ;
@@ -680,11 +685,10 @@ function spawnShardCanvas(cx, cy, rNom, p)
 		
 		// Apply +/- percentage according to organic factors
 		a = aNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_SDIST_ORG)) / 100 ) ;
-		// TODO: round this ... check for anywhere else that screen coordinates or CSS pixels have decimals
 		r = rNom * ( randomInt((100 - C_SDIST_ORG),(100 + C_BLSTRAD_ORG)) / 100 ) ;
 
 		shTmp.push(a) ;
-		shTmp.push(Math.round(r)) ;
+		shTmp.push(Math.floor(r)) ;
 		
 		srTmp.push(shTmp) ;
 	}
@@ -706,7 +710,7 @@ function updateShardReg()
 	var r ;
 
 	// Hide shards
-	//_elSC.style.display = 'none' ;
+	_elSC.style.display = 'none' ;
 
 	// Redraw canvases
 	for(var i = 0; i < _SHARDREG.length; i++)
@@ -742,7 +746,7 @@ function updateShardReg()
 		}
 	}
 
-	//window.setTimeout(function(){_elSC.style.display = 'block'}, 50) ;
+	window.setTimeout(function(){_elSC.style.display = 'block'}, 100) ;
 }
 
 // i refers indices in shard sprite 0 = 3sided, 1 = 4sided ... 3 = 6sided
@@ -1146,7 +1150,7 @@ function randomInt(min, max)
 	left: 447px ;
 	top: 15px ;
 
-	-webkit-transition-timing-function: ease-in-out ;
+	/* -webkit-transition-timing-function: ease-in-out ; */
 	-webkit-transition: -webkit-transform 1s;
 }
 
