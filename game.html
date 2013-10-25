@@ -42,7 +42,7 @@
 <!--                                  -->
 <script>
 
-var C_TAPEVENT		= 'touchstart' ;
+var C_TAPEVENT		= 'mousedown' ;
 
 var C_SCRWID		= 1024 ;
 var C_SCRHGT		= 768 ;
@@ -821,7 +821,7 @@ function initBullets()
 		x = Math.round( x + C_RCBR * Math.cos(ang) - C_WBUL / 2 ) ;
 		y = Math.round( y - C_RCBR * Math.sin(ang) - C_WBUL / 2 ) ;
 		
-		el.src 				= 'img/bullet-blank.png' ;
+		el.src 				= 'img/bullet-front.png' ;
 		el.style.position 	= 'absolute' ;
 		el.style.left 		= x + 'px' ;
 		el.style.top 		= y + 'px' ;
@@ -857,7 +857,7 @@ function addBullet(isRear)
 	var el = _BULLETS[bIdx] ;
 
 	// Set image source depending on front/rear facing ...
-	el.src = src ;
+	//el.src = src ;
 
 	// Randomize rotation (organic detail for bullet rears... lettering, etc)
 	el.style.webkitTransform = 'rotate(' + randomInt(0,360) + 'deg)' ;
@@ -894,7 +894,7 @@ function unloadCyl()
 	for(var i = 0; i < 5; i++)
 	{
 		el = _BULLETS[i] ;
-		el.src = 'img/bullet-blank.png' ;
+		//el.src = 'img/bullet-blank.png' ;
 		el.style.opacity = 0 ;	
 	}
 
