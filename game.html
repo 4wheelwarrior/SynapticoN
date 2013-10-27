@@ -34,6 +34,8 @@
 
 
 <!-- these layers "peel away" as colours change -->
+<div style="display: none">
+<img id="bgs-0" src="img/bg-blu-sm.png" />
 <div id="bg-0" class="bg-layer" style="z-index: 70; background:url('img/bg-red.png')"></div>
 <div id="bg-1" class="bg-layer" style="z-index: 60; background:url('img/bg-org.png')"></div>
 <div id="bg-2" class="bg-layer" style="z-index: 50; background:url('img/bg-yel.png')"></div>
@@ -41,8 +43,9 @@
 <div id="bg-4" class="bg-layer" style="z-index: 30; background:url('img/bg-blu.png')"></div>
 <div id="bg-5" class="bg-layer" style="z-index: 20; background:url('img/bg-ind.png')"></div>
 <div id="bg-6" class="bg-layer" style="z-index: 10; background:url('img/bg-vio.png')"></div>
-
-<a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
+</div>
+a
+< style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
 <a style="position: absolute; z-index: 2000; left: 100px" href="javascript:addBullet(1)">BUL++ (GF)</a>
 <a style="position: absolute; z-index: 2000; left: 200px" href="javascript:addBullet()">BUL++ (PF)</a>
 
@@ -233,7 +236,7 @@ function main()
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
 
 	// Fire up other tickers
-	window.setInterval('updateShardReg()', 300) ;
+	window.setInterval('updateShardReg()', 200) ;
 	window.setInterval('shardRegGC()', 2000) ;
 	window.setInterval('spawnBubble()', C_BUB_SPINT) ;
 	window.setInterval('processHMQ()', 200) ;
@@ -439,6 +442,12 @@ function doGCycle()
 	var cy = C_GCNV_H / 2 ;
 
 	clearGCanvas() ;
+
+	// Paint background onto canvas
+	var img = document.getElementById('bgs-0');
+
+	_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+
 	_cnvG.style.opacity = 1.0 ;
 
 	// Calculate cell coordinates
