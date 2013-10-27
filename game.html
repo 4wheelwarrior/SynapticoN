@@ -12,6 +12,11 @@
 <!--                                  -->
 <!--                 MARKUP           -->
 <!--                                  -->
+<img 	id="bezel-tl" 		src="img/bezel.png"					style="z-index: 5000" />
+<img 	id="bezel-tr" 		src="img/bezel.png"					style="z-index: 5000" />
+<img 	id="bezel-bl" 		src="img/bezel.png"					style="z-index: 5000" />
+<img 	id="bezel-br" 		src="img/bezel.png"					style="z-index: 5000" />
+
 
 <div 	id="revolver-cyl"						style="z-index: 2500"></div>
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
@@ -34,7 +39,10 @@
 <div id="bg-6" class="bg-layer" style="z-index: 10; background:url('img/bg-vio.png')"></div>
 
 <a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
-<a style="position: absolute; z-index: 2000; left: 200px" href="javascript:unloadCyl()">UNLOAD</a>
+<a style="position: absolute; z-index: 2000; left: 100px" href="javascript:addBullet(1)">BUL++ (GF)</a>
+<a style="position: absolute; z-index: 2000; left: 200px" href="javascript:addBullet()">BUL++ (PF)</a>
+
+<a style="position: absolute; z-index: 2000; left: 300px" href="javascript:unloadCyl()">UNLOAD</a>
 
 <div 	id="hmt"></div>
 <!--                                  -->
@@ -59,7 +67,7 @@ var C_BUBOPAC_INI	= 0.02 ;	// Initial bubble opacity (when it first appears)
 var C_BUBOPAC_MIN	= 0.05 ;	// Min opacity that it fades into
 var C_BUBOPAC_MAX	= 0.10 ;	// Max opacity " " "
 
-var C_PBOPAC		= 0.8 ;		// 'Pre-Burst' opacity
+var C_PBOPAC		= 0.5 ;		// 'Pre-Burst' opacity
 
 var C_BUB_SPINT		= 1000 ;	// Interval (ms) on which spawnBubble() is called
 var C_BUB_SPROB		= 20 ;		// % probability that a bubble will spawn
@@ -271,6 +279,11 @@ function doClick(ev)
 		return 0 ;
 	}
 
+	t.style.webkitTransition = 'none' ;
+	t.style.opacity = 0.5 ;
+	window.setTimeout(function(){t.style.opacity = 0},100) ;
+	window.setTimeout(function(){t.style.opacity = 0.3},300) ;
+
 	var rect = t.getBoundingClientRect();
 	//console.log(rect.top, rect.right, rect.bottom, rect.left);
 
@@ -289,7 +302,7 @@ function doClick(ev)
 	window.setTimeout(function(){
 		t.rel = 'exp' ;
 		t.parentNode.removeChild(t) ;
-	},100) ;
+	},400) ;
 
 	// Load a 'rear' bullet
 	_HMQ.push('H') ;
@@ -616,12 +629,17 @@ function spawnBubble()
 		//if(!cnv){console.log('Bubble already popped'); return 0;}
 		if(cnv.rel == 'exp'){console.log('Bubble already popped'); return 0;}
 
-		cnv.style.opacity = 1.0 ;
+		cnv.style.webkitTransition = 'none' ;
+		cnv.style.opacity = 0.5 ;
+		window.setTimeout(function(){cnv.style.opacity = 0},100) ;
+		window.setTimeout(function(){cnv.style.opacity = 0.3},300) ;
 
 		spawnShardCanvas(xIni, yIni, 130, randomInt(3,7)) ;
 		
-		cnv.style.display = 'none' ;
-		cnv.parentNode.removeChild(cnv) ;
+		window.setTimeout(function(){
+			cnv.style.display = 'none' ;
+			cnv.parentNode.removeChild(cnv) ;
+		},400) ;
 
 		_HMQ.push('M') ;
 
@@ -799,13 +817,19 @@ function abClick(e)
 	else(addBullet()) ;
 }
 
-// Distribute bullet images around revolver chambers
+// Distribute bullet elements around revolver chambers
+// _BULLETS array (used for turning elements on/off as bullets load/unload)
+// indices 0 - 4 contain player-facing bullets, starting at TDC going CCW
+// indices 5 - 9 contain game-facing bullets, starting at TDC going CW
+// _ICYL tracks which cylinder we're on, using same index system ...
+//    note, this means bullet DIRECTION is encoded into the index itself
 function initBullets()
 {
 	var x, y ;
 	var ang ;
 	var el ;
 
+	// Distribute player-facing bullets, counterclockwise
 	for(var i = 0; i < 5; i++)
 	{
 		el = document.createElement('img') ;
@@ -823,81 +847,91 @@ function initBullets()
 		el.style.position 	= 'absolute' ;
 		el.style.left 		= x + 'px' ;
 		el.style.top 		= y + 'px' ;
-		el.style.opacity 	= 0 ;
-		el.className		= 'bullet' ;
-		el.id    			= 'b' + i ;
+		el.style.display 	= 'none' ;
+		el.id    			= 'bf' + i ;
+
+		_elCyl.appendChild(el) ;
+		_BULLETS.push(el) ;
+	}
+
+	// Distribute game-facing bullets, clockwise
+	for(var i = 0; i > -5; i--)
+	{
+		el = document.createElement('img') ;
+		
+		// Initialize x,y to center of cylinder
+		x = Math.round(C_WCYL/2) ;
+		y = x ;
+
+		ang = Math.PI / 2 + i * 2 * Math.PI / C_CCNT ;
+
+		x = Math.round( x + C_RCBR * Math.cos(ang) - C_WBUL / 2 ) ;
+		y = Math.round( y - C_RCBR * Math.sin(ang) - C_WBUL / 2 ) ;
+		
+		el.src 				= 'img/bullet-rear.png' ;
+		el.style.position 	= 'absolute' ;
+		el.style.left 		= x + 'px' ;
+		el.style.top 		= y + 'px' ;
+		el.style.display 	= 'none' ;
+		el.id    			= 'br' + Math.abs(i) ;
 
 		_elCyl.appendChild(el) ;
 		_BULLETS.push(el) ;
 	}
 }
 
-function addBullet(isRear)
+// Adds the next bullet in sequence, clearing cylinder as necessary
+// When 
+function addBullet(isGameFacing)
 {
-	var src ;
-	var ang ;
-	var bIdx ;
-
-	if(isRear) src = 'img/bullet-rear.png' ;
-	else src = 'img/bullet-front.png' ;
-
-	// Calculate rotation angle of cylinder
-	ang = Math.PI / 2 + _ICYL * 2 * Math.PI / C_CCNT ;
-
-	// OK... so _ICYL is used for calculating cylinder angle, primarily ...
-	// how do we calculate the actual INDEX of the bullet to light up?
-
-	if(_ICYL < 0) 	bIdx = _ICYL + 5 ;
-	if(_ICYL == 0) 	bIdx = 0 ;
-	if(_ICYL > 0) 	bIdx = _ICYL ;
-
-	console.log('Getting index for bIdx '+bIdx) ;
-	var el = _BULLETS[bIdx] ;
-
-	// Set image source depending on front/rear facing ...
-	el.src = src ;
-
-	// Randomize rotation (organic detail for bullet rears... lettering, etc)
-	el.style.webkitTransform = 'rotate(' + randomInt(0,360) + 'deg)' ;
-
-	// Rotate cylinder into next position (re-adjust angle to "due east" origin)
-	ang -= Math.PI / 2 ;
-	console.log('Rotating cylinder to '+radToDeg(ang)+'deg') ;
-	_elCyl.style.webkitTransform = 'rotate(' + radToDeg(ang) + 'deg)' ;
-
-	// Fade in appropriate bullet, after short delay (allow for rotation)
-	window.setTimeout(function(){
-		window.setTimeout(function(){el.style.opacity = 1},50) ;
-	},(_ICYL ? C_LDEL : 0)) ;
-
-	if(isRear) _ICYL-- ;
-	else _ICYL++ ;
-
-	// TODO: detect this elsewhere ....
-	if(_ICYL > (C_CCNT - 1)) window.setTimeout(function(){
-		alert('DEATH TIME!') ;
+	console.log('_ICYL = '+_ICYL) ;
+	// If cyl is currently loaded with player-facing bullets
+	// and we're loading a game-facing bullet, clear out cylinder
+	if(_ICYL < 5 && isGameFacing)
+	{
 		unloadCyl() ;
-	},1500) ;
+		_ICYL = 5 ;
+	}
 
-	if(_ICYL < (-1 * C_CCNT + 1)) window.setTimeout(function(){
-		alert('FIREWORKS TIME!');
+	// If cyl is currently loaded with game-facing bullets
+	// and we're loading a player-facing bullet, clear out cylinder
+	if(_ICYL > 4 && !isGameFacing)
+	{
 		unloadCyl() ;
-	},1500) ;
+		_ICYL = 0 ;
+	}
+
+	_BULLETS[_ICYL].style.display = 'block' ;
+
+	if(isGameFacing)
+		_BULLETS[_ICYL].style.webkitTransform = 'rotate('+randomInt(0,360)+'deg)' ;
+
+	// If we just loaded the last player-facing bullet, trigger death sequence
+	if(_ICYL == 4)
+	{
+		window.setTimeout(function(){alert('DEATH TIME!') ; unloadCyl() ;},200) ;
+		_ICYL = 0 ;
+		return ;
+	}
+
+	// If we just loaded the last game-facing bullet, trigger fireworks sequence
+	if(_ICYL == 9)
+	{
+		window.setTimeout(function(){alert('FIREWORKS TIME!') ; unloadCyl() ;},200) ;
+		_ICYL = 0 ;
+		return ;
+	}
+
+	_ICYL++ ;
 }
 
 function unloadCyl()
 {
-	var el ;
+	for(var i = 0; i < _BULLETS.length; i++)
+		_BULLETS[i].style.display = 'none' ;
 
-	for(var i = 0; i < 5; i++)
-	{
-		el = _BULLETS[i] ;
-		el.src = 'img/bullet-blank.png' ;
-		el.style.opacity = 0 ;	
-	}
-
-	_elCyl.style.webkitTransform = 'rotate(0deg)' ;
-	_ICYL = 0 ;
+	// Give 'er a spin
+	// _elCyl.style.webkitTransform = 'rotate(360deg)' ;
 }
 
 function processHMQ()
@@ -906,10 +940,9 @@ function processHMQ()
 
 	var ent = _HMQ.shift() ;
 
-	if(_HMQLAST != ent) unloadCyl() ;
-
-	if(ent == 'H'){ addBullet(1); _HMQLAST = 'H' }
-	if(ent == 'M'){ addBullet(); _HMQLAST = 'M' }
+	// addBullet() handles emptying/reloading logic
+	if(ent == 'H') addBullet(1) ;
+	if(ent == 'M') addBullet() ;
 }
 
 
@@ -1164,11 +1197,6 @@ function randomInt(min, max)
 	-webkit-transition: -webkit-transform 1s;
 }
 
-.bullet
-{
-	-webkit-transition: opacity 0.5s;
-}
-
 #g-cnv{
 	position: absolute ;
 	/* double native canvas size for fullscreen */
@@ -1197,6 +1225,32 @@ function randomInt(min, max)
 	font-family: verdana, arial, helvetica, sans-serif ;
 	background: white ;
 	text-align: center ;
+}
+
+#bezel-tl, #bezel-tr, #bezel-bl, #bezel-br
+{
+	position: absolute ;
+}
+
+#bezel-tr
+{
+	left: 1019px ;
+	top: 0px ;
+	-webkit-transform: rotate(90deg) ;
+}
+
+#bezel-bl
+{
+	left: 0px ;
+	top: 743px ;
+	-webkit-transform: rotate(-90deg) ;
+}
+
+#bezel-br
+{
+	left: 1019px ;
+	top: 743px ;
+	-webkit-transform: rotate(180deg) ;
 }
 
 </style>
