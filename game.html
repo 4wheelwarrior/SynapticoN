@@ -281,8 +281,8 @@ function doClick(ev)
 
 	t.style.webkitTransition = 'none' ;
 	t.style.opacity = 0.5 ;
-	window.setTimeout(function(){t.style.opacity = 0},100) ;
-	window.setTimeout(function(){t.style.opacity = 0.3},300) ;
+	//window.setTimeout(function(){t.style.opacity = 0},100) ;
+	//window.setTimeout(function(){t.style.opacity = 0.3},300) ;
 
 	var rect = t.getBoundingClientRect();
 	//console.log(rect.top, rect.right, rect.bottom, rect.left);
@@ -302,7 +302,7 @@ function doClick(ev)
 	window.setTimeout(function(){
 		t.rel = 'exp' ;
 		t.parentNode.removeChild(t) ;
-	},400) ;
+	},100) ;
 
 	// Load a 'rear' bullet
 	_HMQ.push('H') ;
@@ -631,15 +631,15 @@ function spawnBubble()
 
 		cnv.style.webkitTransition = 'none' ;
 		cnv.style.opacity = 0.5 ;
-		window.setTimeout(function(){cnv.style.opacity = 0},100) ;
-		window.setTimeout(function(){cnv.style.opacity = 0.3},300) ;
+		//window.setTimeout(function(){cnv.style.opacity = 0},100) ;
+		//window.setTimeout(function(){cnv.style.opacity = 0.3},300) ;
 
 		spawnShardCanvas(xIni, yIni, 130, randomInt(3,7)) ;
 		
 		window.setTimeout(function(){
 			cnv.style.display = 'none' ;
 			cnv.parentNode.removeChild(cnv) ;
-		},400) ;
+		},100) ;
 
 		_HMQ.push('M') ;
 
