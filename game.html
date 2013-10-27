@@ -9,6 +9,10 @@
 
 <body 	id="thebody">
 
+<iframe id="build-number"
+        style="position:absolute; z-index: 15000; background:white; width: 80px; height: 30px; padding: 0"
+        src="build.txt"></iframe>
+
 <!--                                  -->
 <!--                 MARKUP           -->
 <!--                                  -->
@@ -229,10 +233,10 @@ function main()
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
 
 	// Fire up other tickers
-	window.setInterval('updateShardReg()', 200) ;
+	window.setInterval('updateShardReg()', 300) ;
 	window.setInterval('shardRegGC()', 2000) ;
 	window.setInterval('spawnBubble()', C_BUB_SPINT) ;
-	window.setInterval('processHMQ()', 100) ;
+	window.setInterval('processHMQ()', 200) ;
 
 	_INBG = window.setInterval('nextBG()',60000) ;
 }
@@ -271,6 +275,8 @@ function updateHMT()
 
 function doClick(ev)
 {
+	ev.preventDefault() ;
+
 	var t = ev.target ;
 
 	if(t.className != 'bubble-canvas')
