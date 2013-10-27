@@ -33,19 +33,18 @@
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
 
 
-<!-- these layers "peel away" as colours change -->
+<!-- image data for coloured backgrounds -->
 <div style="display: none">
-<img id="bgs-0" src="img/bg-blu-sm.png" />
-<div id="bg-0" class="bg-layer" style="z-index: 70; background:url('img/bg-red.png')"></div>
-<div id="bg-1" class="bg-layer" style="z-index: 60; background:url('img/bg-org.png')"></div>
-<div id="bg-2" class="bg-layer" style="z-index: 50; background:url('img/bg-yel.png')"></div>
-<div id="bg-3" class="bg-layer" style="z-index: 40; background:url('img/bg-grn.png')"></div>
-<div id="bg-4" class="bg-layer" style="z-index: 30; background:url('img/bg-blu.png')"></div>
-<div id="bg-5" class="bg-layer" style="z-index: 20; background:url('img/bg-ind.png')"></div>
-<div id="bg-6" class="bg-layer" style="z-index: 10; background:url('img/bg-vio.png')"></div>
+	<img id="bg-0" src="img/bg-red.jpg" />
+	<img id="bg-1" src="img/bg-org.jpg" />
+	<img id="bg-2" src="img/bg-yel.jpg" />
+	<img id="bg-3" src="img/bg-grn.jpg" />
+	<img id="bg-4" src="img/bg-blu.jpg" />
+	<img id="bg-5" src="img/bg-ind.jpg" />
+	<img id="bg-6" src="img/bg-vio.jpg" />
 </div>
-a
-< style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
+
+<a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
 <a style="position: absolute; z-index: 2000; left: 100px" href="javascript:addBullet(1)">BUL++ (GF)</a>
 <a style="position: absolute; z-index: 2000; left: 200px" href="javascript:addBullet()">BUL++ (PF)</a>
 
@@ -252,15 +251,6 @@ function nextBG()
 		halt() ;
 		return ;
 	}
-	
-	// Retrieve background element and make it disappear!
-	var el = document.getElementById('bg-'+_bgIdx) ;
-		
-    el.style.opacity = 0 ;
-
-    window.setTimeout(function(){
-    	el.parentElement.removeChild(el) ;
-    }, 5000)
     
     _bgIdx++ ;
 }
@@ -311,7 +301,7 @@ function doClick(ev)
 	window.setTimeout(function(){
 		t.rel = 'exp' ;
 		t.parentNode.removeChild(t) ;
-	},100) ;
+	},50) ;
 
 	// Load a 'rear' bullet
 	_HMQ.push('H') ;
@@ -444,7 +434,7 @@ function doGCycle()
 	clearGCanvas() ;
 
 	// Paint background onto canvas
-	var img = document.getElementById('bgs-0');
+	var img = document.getElementById('bg-'+_bgIdx);
 
 	_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
 
@@ -654,7 +644,7 @@ function spawnBubble()
 		window.setTimeout(function(){
 			cnv.style.display = 'none' ;
 			cnv.parentNode.removeChild(cnv) ;
-		},100) ;
+		},50) ;
 
 		_HMQ.push('M') ;
 
@@ -794,7 +784,11 @@ function drawShard(ctx, x, y, i)
 	w = x2 - x1;
  
  	// Copy pixel block from shard sprite (scale up by 2x for pixellated FX)
-	ctx.drawImage(_cnvSS, x1, 0, w, C_SHDRAD * 2, x, y, w * 2, C_SHDRAD * 4) ;
+ 	var sOrg = randomInt(70,130) / 100 ;
+ 	var dWid = Math.floor(w * 2 * sOrg) ;
+ 	var dHgt = Math.floor(C_SHDRAD * 4 * sOrg) ;
+
+	ctx.drawImage(_cnvSS, x1, 0, w, C_SHDRAD * 2, x, y, dWid, dHgt) ;
 }
 
 function shardRegGC()
@@ -1148,17 +1142,6 @@ function randomInt(min, max)
 	overflow: 		hidden ;
 
 	background:		black ;
-}
-
-.bg-layer
-{
-	background-position: center ;
-	position: absolute ;
-	opacity: 1.0 ;
-	width: 1024px ;
-	height: 768px ;
-
-	-webkit-transition: opacity 6s;
 }
 
 #shard-container, #bubble-container, #geom-1, #geom-2
