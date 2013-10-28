@@ -51,12 +51,18 @@
 <a style="position: absolute; z-index: 2000; left: 300px" href="javascript:unloadCyl()">UNLOAD</a>
 
 <div 	id="hmt"></div>
+
+<audio id="snd-sprite" preload="auto">
+	<source src="snd/sound-sprite-proto.wav">
+</audio>
+
 <!--                                  -->
 <!--                 JAVASCRIPT       -->
 <!--                                  -->
 <script>
 
 var C_TAPEVENT		= 'touchstart' ;
+var C_DISAUDIO		= false ;
 
 var C_SCRWID		= 1024 ;
 var C_SCRHGT		= 768 ;
@@ -204,6 +210,19 @@ var _BULLETS		= [] ;		// Bullet elements
 var _bgIdx 			= 0 ;		// Background image we're currently on
 var _INBG ;
 
+// Starting times of each audio loop
+// They're all the same length
+var C_LOOP_DICT 	= [0,3,6,9,12,15,18] ;
+
+// Start times and durations of all other sound effects
+// Used by playSfx() function to cue and then pause after a delay
+// In order, these are: 0:burst, 1:gun cock, 2:gun fire, 3:life up, 4:life down, 5:game over
+var C_SFX_DICT		= [[21,1800],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] ;
+
+var _AUD_TIMEOUT ;
+var _AUDIO ; 					// Reference to sound sprite
+var _ILPP ;
+
 function main()
 {
 	_cnvSS 	= document.getElementById('shard-sprite') ;
@@ -225,11 +244,21 @@ function main()
 
 	_elCyl 	= document.getElementById('revolver-cyl') ;
 
+	_AUDIO  = document.getElementById('snd-sprite') ;
+
 	renderBubbleSprite() ;
 	renderGCellSprite() ;
 	renderShardSprite() ;
 
 	initBullets() ;
+
+	// Start the loop here too, because it'll sound sexy ...
+	// And audio needs to be triggered by a user event
+	// Because of some bullshit data plan babysitting routine :p
+	playAudio() ;
+	_AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+
+	_ILPP = window.setInterval('doAudioLoop()',4000) ;
 
 	doGCycle() ;
 	window.setInterval('doGCycle()',C_GCYC_INT) ;
@@ -277,6 +306,9 @@ function doClick(ev)
 		_HMQ.push('M') ;
 		return 0 ;
 	}
+
+	// Trigger burst sound
+	playSfx(0) ;
 
 	t.style.webkitTransition = 'none' ;
 	t.style.opacity = 0.5 ;
@@ -634,6 +666,9 @@ function spawnBubble()
 		//if(!cnv){console.log('Bubble already popped'); return 0;}
 		if(cnv.rel == 'exp'){console.log('Bubble already popped'); return 0;}
 
+		// Play burst effect
+		playSfx(0) ;
+
 		cnv.style.webkitTransition = 'none' ;
 		cnv.style.opacity = 0.5 ;
 		//window.setTimeout(function(){cnv.style.opacity = 0},100) ;
@@ -949,11 +984,64 @@ function processHMQ()
 
 	var ent = _HMQ.shift() ;
 
+	// Play cocking sound after a short delay
+	// (to allow bubble bursting sound to finish)
+	window.setTimeout('playSfx(1)',500) ;
+
 	// addBullet() handles emptying/reloading logic
 	if(ent == 'H') addBullet(1) ;
 	if(ent == 'M') addBullet() ;
 }
 
+
+/***************************************************
+*
+*					 Sound Routines
+*
+****************************************************/
+
+function doAudioLoop()
+{
+    if(C_DISAUDIO) return 0 ;
+
+    _AUDIO.currentTime = C_LOOP_DICT[_bgIdx] ;
+    if(_AUDIO.paused) _AUDIO.play() ;
+
+    window.clearTimeout(_AUD_TIMEOUT) ;
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+}
+
+function playAudio()
+{
+    if(C_DISAUDIO) return 0 ;
+
+    _AUDIO.play() ;
+}
+
+function pauseAudio()
+{
+    if(C_DISAUDIO) return 0 ;
+
+    _AUDIO.pause() ;
+}
+
+function playSfx(i)
+{
+	if(C_DISAUDIO) return 0 ;
+	
+	var startTime = C_SFX_DICT[i][0] ;
+	var pauseTime = C_SFX_DICT[i][1] ;
+
+	// Cue to start time, play if not already playing
+	_AUDIO.currentTime = startTime ;
+	if(_AUDIO.paused) _AUDIO.play() ;
+    
+    // Clear any pending pause timeouts
+    window.clearTimeout(_AUD_TIMEOUT) ;
+
+    // Set a new timeout to pause after this sound is done
+    _AUD_TIMEOUT = window.setTimeout('pauseAudio()',pauseTime) ;
+}
 
 
 
