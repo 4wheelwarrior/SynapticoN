@@ -95,7 +95,7 @@ var C_GCNV_H 		= 384 ;
 
 // Radius/Opacity of GCell sprite
 var C_GSPR_R 		= 120 ;
-var C_GSPR_O 		= 0.08 ;
+var C_GSPR_O 		= 0.07 ;
 
 // Interval on which drawFaded is called
 var C_GDF_INT 		= 10 ;
@@ -228,6 +228,8 @@ var _AUD_TIMEOUT ;
 var _AUDIO ; 					// Reference to sound sprite
 var _ILPP ;
 var _IBSP ;
+
+var _PAUSEGDQ = false ;
 
 function main()
 {
@@ -509,6 +511,8 @@ function doGCycle()
 
 function drawFaded()
 {
+	if(_PAUSEGDQ) return false ;
+
 	// If we've reached the end of the draw queue,
 	// Stop drawing, set fade out timer, reset for next cycle
 	if(_iDFLoc >= _GDQ.length)
@@ -1017,6 +1021,11 @@ function doFireworks()
 	window.clearInterval(_IBSP) ;
 	window.setTimeout(function(){
 		_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+	},3000) ;
+
+	_PAUSEGDQ = true ;
+	window.setTimeout(function(){
+		_PAUSEGDQ = false ;
 	},3000) ;
 
 	doLFX() ;
