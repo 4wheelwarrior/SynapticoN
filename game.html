@@ -26,7 +26,10 @@
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
 <div 	id="shard-container"					style="z-index: 1500"></div>
 
+<div 	id="ray-container"						style="z-index: 550"></div>
+
 <canvas id="g-cnv" 				width="512"		height="384" 	style="z-index: 500"></canvas>
+<canvas id="g-cnv-bg" 			width="512"		height="384" 	style="z-index: 450"></canvas>
 
 <canvas id="shard-sprite"		width="48" 		height="12"		style="display: none"></canvas>
 <canvas id="bubble-sprite"		width="420" 	height="60"		style="display: none"></canvas>
@@ -45,7 +48,7 @@
 </div>
 
 <a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
-<a style="position: absolute; z-index: 2000; left: 100px" href="javascript:addBullet(1)">BUL++ (GF)</a>
+<a style="position: absolute; z-index: 2000; left: 100px" href="javascript:doFireworks()">RENDER</a>
 <a style="position: absolute; z-index: 2000; left: 200px" href="javascript:addBullet()">BUL++ (PF)</a>
 
 <a style="position: absolute; z-index: 2000; left: 300px" href="javascript:unloadCyl()">UNLOAD</a>
@@ -92,7 +95,7 @@ var C_GCNV_H 		= 384 ;
 
 // Radius/Opacity of GCell sprite
 var C_GSPR_R 		= 120 ;
-var C_GSPR_O 		= 0.07 ;
+var C_GSPR_O 		= 0.08 ;
 
 // Interval on which drawFaded is called
 var C_GDF_INT 		= 10 ;
@@ -134,7 +137,7 @@ var C_GFDELAY 		= 4400 ;
 
 // Interval on which new geom. cycles are spawned
 // (includes allowance for draw time, fadeout time, and blank space)
-var C_GCYC_INT 		= 20000 ;
+var C_GCYC_INT 		= 10000 ;
 
 
 // "Geometry Draw Queue"
@@ -185,7 +188,9 @@ var _cnvGS ;					// Canvas/Context for G sprite
 var _ctxGS ;
 
 var _cnvG ;						// Canvas/Context for G background
-var _ctxG ;
+var _ctxG ;						
+
+var _elRC ; 					// "Ray" container for lightning effects
 
 var _SHARDREG 		= [] ;
 
@@ -222,6 +227,7 @@ var C_SFX_DICT		= [[21,1800],[23,1200],[25,2200],[28,1200],[30,1200],[32,7000]] 
 var _AUD_TIMEOUT ;
 var _AUDIO ; 					// Reference to sound sprite
 var _ILPP ;
+var _IBSP ;
 
 function main()
 {
@@ -237,7 +243,12 @@ function main()
 	_cnvG 	= document.getElementById('g-cnv') ;
 	_ctxG 	= _cnvG.getContext('2d') ;
 
+	_cnvGB 	= document.getElementById('g-cnv-bg') ;
+	_ctxGB 	= _cnvGB.getContext('2d') ;
+
 	_elSC 	= document.getElementById('shard-container') ;
+
+	_elRC 	= document.getElementById('ray-container') ;
 
 	_elBC 	= document.getElementById('bubble-container') ;
 	_elBC.addEventListener(C_TAPEVENT, doClick, false) ;
@@ -266,7 +277,7 @@ function main()
 	// Fire up other tickers
 	window.setInterval('updateShardReg()', 200) ;
 	window.setInterval('shardRegGC()', 2000) ;
-	window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+	_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
 	window.setInterval('processHMQ()', 200) ;
 
 	_INBG = window.setInterval('nextBG()',60000) ;
@@ -469,6 +480,7 @@ function doGCycle()
 	var img = document.getElementById('bg-'+_bgIdx);
 
 	_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+	_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
 
 	_cnvG.style.opacity = 1.0 ;
 
@@ -961,7 +973,7 @@ function addBullet(isGameFacing)
 	// If we just loaded the last game-facing bullet, trigger fireworks sequence
 	if(_ICYL == 9)
 	{
-		window.setTimeout(function(){alert('FIREWORKS TIME!') ; unloadCyl() ;},200) ;
+		window.setTimeout(function(){doFireworks() ; unloadCyl() ;},200) ;
 		_ICYL = 0 ;
 		return ;
 	}
@@ -991,6 +1003,164 @@ function processHMQ()
 	// addBullet() handles emptying/reloading logic
 	if(ent == 'H') addBullet(1) ;
 	if(ent == 'M') addBullet() ;
+}
+
+
+/***************************************************
+*
+*					 Lightning Routines
+*
+****************************************************/
+
+function doFireworks()
+{
+	window.clearInterval(_IBSP) ;
+	window.setTimeout(function(){
+		_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+	},3000) ;
+
+	doLFX() ;
+	window.setTimeout('doLFX()',500) ;
+	window.setTimeout('doLFX()',1000) ;
+	window.setTimeout('doLFX()',1500) ;
+}
+
+function doLFX()
+{
+	var iStart ;
+	var iStop ;
+
+	_cnvG.style.display = 'none' ;
+	window.setTimeout(function(){_cnvG.style.display = 'block'},50) ;
+
+	for(var i = 0; i < 5; i++)
+	{
+		iStart = randomInt(0,_GDQ.length - 15) ;
+		iStop = iStart + randomInt(3,7) ;
+
+		spawnBolt(iStart, iStop) ;
+	}
+
+	// Pop all the bubbles while we're at it!
+	var bubs = _elBC.children ;
+	var cnv ;
+
+	var rect ;
+
+	var cx ;
+	var cy ;
+
+	for(var i = 0; i < bubs.length; i++)
+	{
+		cnv = bubs[i] ;
+
+		rect = cnv.getBoundingClientRect() ;
+		cx = Math.floor(rect.left + (rect.right - rect.left) / 2 ) ;
+		cy = Math.floor(rect.top + (rect.bottom - rect.top) / 2 ) ;
+
+		spawnShardCanvas(cx, cy, 130, randomInt(3,7)) ;
+		cnv.rel = 'exp' ;
+		cnv.style.display = 'none' ;
+		cnv.parentNode.removeChild(cnv) ;
+	}
+}
+
+function spawnBolt(i1,i2)
+{
+	spawnRayRec(i1,i2) ;
+}
+
+// Spawns a ray from i to i + 1
+function spawnRayRec(i,iStop)
+{
+	console.log('spawnRayRec() called with i = ' + i) ;
+
+	spawnRay(_GDQ[i][0],_GDQ[i][1],_GDQ[i + 1][0],_GDQ[i + 1][1]) ;
+	if(i >= iStop) return ;
+
+	window.setTimeout(function(){spawnRayRec(i + 1, iStop)}, 50) ;
+}
+
+// coordinates here are relative to 512 x 384 G canvas
+// Must be scaled up by 2 to get screen coords ...
+function spawnRay(x1,y1,x2,y2)
+{
+	var cnv 	= document.createElement('canvas') ;
+
+	// Width and Height (native coords)
+	var w 		= Math.abs(x2 - x1) ;
+	var h 		= Math.abs(y2 - y1) ;
+
+	// Draw coordinates on canvas
+	var dx1, dy1, dx2, dy2 ;
+
+	cnv.width 	= w ;
+	cnv.height 	= h ;
+	cnv.style.width = 2 * w + 'px' ;
+	cnv.style.height = 2 * h + 'px' ;
+	//cnv.style.border = '2px solid white' ;
+	cnv.style.opacity = 0.5 ;
+	cnv.style.position = 'absolute' ;
+	cnv.style.zIndex = 550 ;
+	cnv.style.webkitTransition = 'opacity 0.5s' ;
+
+	if(x2 > x1){ cnv.style.left = 2 * x1 ; dx1 = w ; dx2 = 0 }
+	if(x2 < x1){ cnv.style.left = 2 * x2 ; dx1 = 0 ; dx2 = w }
+
+	if(y2 > y1){ cnv.style.top = 2 * y1 ; dy1 = h ; dy2 = 0 }
+	if(y2 < y1){ cnv.style.top = 2 * y2 ; dy1 = 0 ; dy2 = h }
+
+	// Special cases for dead horizontal/vertical lines ...
+	// allow extra room for padding
+	if(w == 1)
+	{
+		cnv.width = 10 ;
+		cnv.style.width = '20px' ;
+		dx1 = 5 ;
+		dx2 = 5 ;
+	}
+
+	if(h == 1)
+	{
+		cnv.height = 10 ;
+		cnv.style.height = '20px' ;
+		dy1 = 5 ;
+		dy2 = 5 ;
+	}
+
+	_elRC.appendChild(cnv) ;
+	window.setTimeout(function(){cnv.style.opacity = 0},20) ;
+
+	window.setTimeout(function(){
+		cnv.parentNode.removeChild(cnv) ;
+	},1000) ;
+
+	ctx = cnv.getContext('2d') ;
+
+	ctx.strokeStyle = 'rgba(255,255,255,0.2)' ;
+	ctx.lineWidth = 8 ;
+	ctx.moveTo(dx1,dy1) ;
+	ctx.lineTo(dx2,dy2) ;
+
+	ctx.stroke() ;
+
+	ctx = cnv.getContext('2d') ;
+
+	ctx.strokeStyle = 'rgba(255,255,255,0.3)' ;
+	ctx.lineWidth = 5 ;
+	ctx.moveTo(dx1,dy1) ;
+	ctx.lineTo(dx2,dy2) ;
+
+	ctx.stroke() ;
+
+	ctx = cnv.getContext('2d') ;
+
+	ctx.strokeStyle = 'rgba(255,255,255,0.6)' ;
+	ctx.lineWidth = 2 ;
+	ctx.moveTo(dx1,dy1) ;
+	ctx.lineTo(dx2,dy2) ;
+
+	ctx.stroke() ;
 }
 
 
@@ -1283,14 +1453,26 @@ function randomInt(min, max)
 	-webkit-transition: -webkit-transform 1s;
 }
 
+#ray-container{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+}
+
 #g-cnv{
 	position: absolute ;
 	/* double native canvas size for fullscreen */
 	width: 1024px ;
 	height: 768px ;
-	z-index: 100 ;
-	-webkit-transition: opacity 5s;
+	-webkit-transition: opacity 5s ;
 	-webkit-transform: translateZ(0) ;
+}
+
+#g-cnv-bg{
+	position: absolute ;
+	/* double native canvas size for fullscreen */
+	width: 1024px ;
+	height: 768px ;
 }
 
 .bubble-canvas
