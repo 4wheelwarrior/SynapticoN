@@ -1,0 +1,150 @@
+<html>
+<head>
+<style>
+	body
+	{
+		background: #0000 ;
+	}
+	#spatter-paint
+	{
+		position: absolute ;
+	}
+</style>
+<script language="javascript">
+var _imgSP ;
+
+var _cnvSS ;
+var _ctxSS ;
+
+var _BDQ = [] ;
+
+function main()
+{
+	_imgSP  = document.getElementById('spatter-prim') ;
+	_cnvSP 	= document.getElementById('spatter-paint') ;
+	_ctxSP 	= _cnvSP.getContext('2d') ;
+}
+
+function cleanup()
+{
+	_ctxSP.clearRect(0,0,1024,768) ;
+}
+
+function sprayClick()
+{
+	var cx = randomInt(300,700) ;
+	var cy = randomInt(180,580) ;
+	var rMax ;
+
+	// Inner ring
+	rMax = randomInt(50,300) ;
+	formSpatter(cx, cy, rMax) ;
+
+	// Mid Ring
+	rMax = randomInt(250,500) ;
+	formSpatter(cx, cy, rMax) ;
+
+	// Outer ring
+	rMax = randomInt(400,800) ;
+	formSpatter(cx, cy, rMax) ;
+}
+
+// Basically calls doSpray a few times
+// with different max radii to form full on splatter
+function formSpatter(cx, cy, rMax)
+{
+	for(var i = 0; i < 5; i++)
+	{
+		console.log('Running formSpatter with '+cx+', '+cy+', '+rMax) ;
+		doSpray(cx, cy, rMax) ;
+	}
+}
+
+// Does a single spray @ random angle
+// centered at cx,cy with random radius
+function doSpray(cx, cy, rMax)
+{
+	r = randomInt(50,rMax) ;
+
+	a1 = randomInt(0, Math.floor(2 * Math.PI * 100)) / 100 ;
+	a2 = a1 + randomInt(Math.PI * 25, Math.PI * 50) / 100 ;
+
+	spray(cx, cy, a1, a2, r, 30) ;
+}
+
+// Do a blood spray centered at cx,cy
+// fanning out between a1 and a2
+// reaching out to average radius of rNom
+// with 'p' particle count
+var C_BPSIZE_MIN = 10 ;
+var C_BPSIZE_MAX = 90 ;
+var C_SPRAYR_ORG = 30 ;
+function spray(cx, cy, a1, a2, rNom, p)
+{
+	var r ;
+	var a ;
+
+	var s ; // particle size
+
+	var x, y ; // position of particle being plotted
+
+	var a1int ;
+	var a2int ;
+
+	for(var i = 0; i < p; i++)
+	{
+		//if(a2 > a1) a = randomInt(Math.floor(a1 * 100), Math.floor(a2 * 100)) / 100 ;
+		//if(a2 < a1) a = randomInt(Math.floor(a2 * 100), Math.floor(a1 * 100)) / 100 ;
+		a1int = Math.floor(a1 * 100) ;
+		a2int = Math.floor(a2 * 100) ;
+
+		//console.log('randomizing angle between '+a1int+' and '+a2int) ;
+
+		a = randomInt(a1int,a2int) / 100 ;
+
+		r = rNom * ( randomInt((100 - C_SPRAYR_ORG),(100 + C_SPRAYR_ORG)) / 100 ) ;
+		r = Math.floor(r) ;
+		r = randomInt(0,r) ;
+
+		s = randomInt(C_BPSIZE_MIN, C_BPSIZE_MAX) ;
+
+		x = Math.floor(cx + r * Math.cos(a)) ;
+		y = Math.floor(cy + r * Math.sin(a)) ;
+
+		_ctxSP.drawImage(_imgSP, 0, 0, 50, 50, x, y, s, s) ;
+	}
+}
+
+function procBDQ()
+{
+	if(!_BDQ.length) return 0 ;
+
+	var el = _BDQ.shift() ;
+	
+	var x = el[0] ;
+	var y = el[1] ;
+	var s = el[2] ;
+
+	_ctxSP.drawImage(_imgSP, 0, 0, 50, 50, x, y, s, s) ;
+}
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+</script>
+</head>
+<body>
+	<a style="position:absolute; z-index: 100" href="javascript:sprayClick()">SPRAY BLOOD!!</a>
+	<a style="position:absolute; z-index: 100; top: 50px" href="javascript:cleanup()">CLEANUP</a>
+	<img style="display:none" id="spatter-prim" src="img/spatter-prim.png"></canvas>
+
+	<!-- composite many spatter primitives @ random radii
+		 and positions to make a unique 'spatter sprite',
+		 which is then plastered all over #spatter-paint in a fanout pattern -->
+
+	<canvas id="spatter-paint" width="1024" height="768"></canvas>
+
+	<script language="javascript">window.setTimeout('main()',200)</script>
+</body>
+</html>
