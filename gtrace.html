@@ -1,0 +1,224 @@
+<html>
+<head>
+<script>
+var _cnvG ;
+var _ctxG ;
+
+var _cnvS ;
+var _ctxS ;
+
+var _cnvGS ;
+var _ctxGS ;
+
+var _GDQ = [] ;
+
+var _GORG = 10 ;
+
+var C_GA = 2.39982772 ;
+var C_PHI 			= ( 1 + Math.sqrt(5) ) / 2 ;
+
+function main()
+{
+	_cnvG = document.getElementById('g-cnv-neg') ;
+	_ctxG = _cnvG.getContext('2d') ;
+
+	_cnvG.addEventListener('mousedown',doSweep,false) ;
+
+	_cnvS = document.getElementById('grd-sweep') ;
+	_ctxS = _cnvS.getContext('2d') ;
+
+	_cnvGS = document.getElementById('gcell-sprite') ;
+	_ctxGS = _cnvGS.getContext('2d') ;
+
+	renderGCellSprite() ;
+
+	var r = 30 ;
+	var a = 0 ;
+
+	calcFol(256,192,r,a) ;
+
+	
+	a += C_GA ;
+	calcFol(256, 192, r * C_PHI, a) ;
+
+	a += C_GA ;
+	calcFol(256, 192, r * Math.pow(C_PHI,2), a) ;
+	
+	
+	_ctxG.fillStyle = '#000000' ;
+	_ctxG.fillRect(0,0,512,384) ;
+
+	_ctxG.globalCompositeOperation = 'xor' ;
+	renderDQ() ;
+
+	window.setInterval('dgTick()',100) ;
+}
+
+function doSweep(ev)
+{
+	_R = 5 ;
+	return true ;
+}
+
+var _R = 5 ;
+function dgTick()
+{	
+	if(_R > 500) return 0 ;
+	_ctxS.clearRect(0,0,256,192) ;
+	drawGradient(_R) ;
+	_R += 15 ;
+}
+
+function renderDQ()
+{
+	for(var i = 0; i < _GDQ.length; i++)
+	{
+		drawGCell(_GDQ[i][0], _GDQ[i][1], _GDQ[i][2]) ;
+	}
+}
+
+// Draw gradient at radius r (base radius is 10)
+function drawGradient(r)
+{
+	var cx = 256 / 2 ;
+	var cy = 192 / 2 ;
+
+	_ctxS.rect(0, 0, _cnvS.width, _cnvS.height);
+
+	// create radial gradient
+	var grd = _ctxS.createRadialGradient(cx, cy, 10, cx, cy, r);
+	// light blue
+	grd.addColorStop(0, 'rgba(0,0,0,0)');
+	grd.addColorStop(0.10, 'rgba(0,0,0,0)');
+	grd.addColorStop(0.50, 'rgba(255,0,0,255)');
+	grd.addColorStop(0.90, 'rgba(0,0,0,0)');
+	grd.addColorStop(1, 'rgba(0,0,0,0)');
+
+	_ctxS.fillStyle = grd;
+	_ctxS.fill();
+}
+
+function drawGCell(cx, cy, rNom)
+{
+    // Apply organic factor to nominal radius
+    //var r = rNom * ( randomInt((100 - _GORG),(100 + _GORG)) / 100 ) ;
+    //r = Math.round(r) ;
+    var r = rNom ;
+
+    //console.log('Drawing with cx/cy/rNom/r '+cx+'/'+cy+'/'+rNom+' / '+r) ;
+
+    // Calculate x, y of top left corner relative to center
+    // Where cell will be placed
+    var x = cx - r ;
+    var y = cy - r ;
+
+    // Calculate width/height of clipping area on sprite canvas
+    var wCopy = C_GSPR_R * 2 ;
+
+    _ctxG.drawImage(_cnvGS, 0, 0, wCopy, wCopy, x, y, r * 2, r * 2) ;
+}
+
+
+var C_GSPR_R 		= 120 ;
+var C_GSPR_O 		= 0.07 ;
+
+function renderGCellSprite()
+{
+    var cR 	= 0 ;
+    var cG 	= 0 ;
+    var cB 	= 0 ;
+
+    var o 	= 1 ;
+
+    // Creating separate vars for readability
+    var cx  = C_GSPR_R ;
+    var cy 	= C_GSPR_R ;
+    var r 	= C_GSPR_R ;
+
+    var rg 	= _ctxGS.createRadialGradient(cx, cy, r - 30, cx, cy, r) ;
+
+    rg.addColorStop(0, 		'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.6, 	'rgba('+cR+', '+cG+', '+cB+', 0.0)') ;
+    rg.addColorStop(0.9, 	'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+    rg.addColorStop(1, 		'rgba('+cR+', '+cG+', '+cB+', '+ 0.2 * o +')') ;
+
+    _ctxGS.beginPath() ;
+    _ctxGS.arc(cx, cy, r, 0, 2 * Math.PI, false) ;
+    _ctxGS.fillStyle = rg ;
+    _ctxGS.fill() ;
+}
+
+var C_GSEGS = 6 ;
+
+function calcFol(cx, cy, r, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    calcSol(cx, cy, r, ao) ;
+
+    for(var i = 0; i < C_GSEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_GSEGS) ;
+
+        x = Math.round(cx + 2 * r * Math.cos(a)) ;
+        y = Math.round(cy + 2 * r * Math.sin(a)) ;
+
+        calcSol(x, y, r, a) ;
+    }
+}
+
+function calcSol(cx, cy, rNom, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    // Round off radius before pushing into draw queue
+    _GDQ.push([cx, cy, Math.round(rNom)]) ;
+
+    for(var i = 0; i < C_GSEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_GSEGS) ;
+        x = Math.round(cx + rNom * Math.cos(a)) ;
+        y = Math.round(cy + rNom * Math.sin(a)) ;
+        _GDQ.push([x, y, Math.round(rNom)]) ;
+    }
+}
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+</script>
+<style>
+body{
+	background: black ;
+	padding: 0 ;
+	margin: 0 ;
+}
+
+#g-cnv-neg{
+	position: absolute ;
+	/* double native canvas size for fullscreen */
+	width: 1024px ;
+	height: 768px ;
+	z-index: 100 ;
+}
+
+#grd-sweep{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	z-index: 50 ;
+}
+</style>
+</head>
+<body>
+
+
+<canvas id="g-cnv-neg" width="512" height="384"></canvas>
+<canvas id="grd-sweep" width="256" height="192"></canvas>
+
+<canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
+
+<script>window.setTimeout('main()',200)</script>
+</body>
+</html>
