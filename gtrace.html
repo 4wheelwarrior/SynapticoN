@@ -22,7 +22,7 @@ function main()
 	_cnvG = document.getElementById('g-cnv-neg') ;
 	_ctxG = _cnvG.getContext('2d') ;
 
-	_cnvG.addEventListener('mousedown',doSweep,false) ;
+	_cnvG.addEventListener('mousedown',doClick,false) ;
 
 	_cnvS = document.getElementById('grd-sweep') ;
 	_ctxS = _cnvS.getContext('2d') ;
@@ -32,7 +32,7 @@ function main()
 
 	renderGCellSprite() ;
 
-	var r = 30 ;
+	var r = 50 ;
 	var a = 0 ;
 
 	calcFol(256,192,r,a) ;
@@ -40,21 +40,161 @@ function main()
 	
 	a += C_GA ;
 	calcFol(256, 192, r * C_PHI, a) ;
-
+/*
 	a += C_GA ;
 	calcFol(256, 192, r * Math.pow(C_PHI,2), a) ;
 	
-	
+	*/
 	_ctxG.fillStyle = '#000000' ;
 	_ctxG.fillRect(0,0,512,384) ;
-
+	
 	_ctxG.globalCompositeOperation = 'xor' ;
 	renderDQ() ;
 
 	window.setInterval('dgTick()',100) ;
 }
 
-function doSweep(ev)
+function doClick(ev)
+{
+	if(ev.pageX < 300 && ev.pageX > 0) doSweep() ;
+	if(ev.pageX > 300 && ev.pageX < 600) doSweep2() ;
+	if(ev.pageX > 600 && ev.pageX < 1024) doSweep3() ;
+}
+
+// Sweep a single ray, leaving trail behind
+// r is position from center
+// Paint onto _cnvS
+var _RREG = [] ; // [x,y,rp]
+
+
+function doSweep3()
+{
+	var cx = 256 / 2 ;
+	var cy = 192 / 2 ;
+
+	var r = randomInt(100, 200) ;
+	var a = randomInt(0, 2 * Math.PI * 100) / 100 ;
+	var rp1 = randomInt(2, 5) ;
+	var rp2 = randomInt(15, 25) ;
+
+	// current values, as they're being 'tweened'
+	var sc ;
+	var x, y ;
+
+	for(var i = 0; i < 100; i+= 5)
+	{
+		sc = Math.floor((i / 100) * (rp2 - rp1)) ;
+
+		x = cx + Math.floor((i / 100) * r * Math.cos(a)) ; 
+		y = cy + Math.floor((i / 100) * r * Math.sin(a)) ;
+
+		console.log('Pushing onto RREG: '+x+', '+y+', '+sc) ;
+		_RREG.push([x, y, sc]) ;
+	}
+	
+
+	_ISWP3 = window.setInterval('drawSweep3()',100) ;
+}
+
+var _IRR = 0 ;
+var _ISWP3 ;
+
+function drawSweep3()
+{
+	var x, y, rp ;
+
+	var img = document.getElementById('sweep-prim') ;
+
+	var i1 = _IRR ;
+	var i2 = _IRR + 6 ;
+
+	// erase canvas
+	_ctxS.clearRect(0,0,256,192) ;
+	
+	if(i2 > _RREG.length) i2 = _RREG.length - 1 ;
+
+	console.log('i1/i2: '+i1+'/'+i2) ;
+	if(i1 >= i2)
+	{
+		window.clearInterval(_ISWP3) ;
+		_RREG = [] ;
+		_IRR = 0 ;
+		return ;
+	}
+
+	// Draw segment from ray reg
+	for(var i = i1; i < i2; i++)
+	{
+		x = _RREG[i][0] ;
+		y = _RREG[i][1] ;
+		rp = _RREG[i][2] ;
+
+		console.log('Painting ray seg at '+x+', '+y+', '+rp) ;
+		_ctxS.drawImage(img, 0, 0, 50, 50, x, y, rp * 2, rp * 2) ;
+	}
+	// Increment draw window
+	_IRR++ ;
+}
+
+var _ISWP = 0 ;
+function doSweep2()
+{
+	if(_ISWP > 5)
+	{
+		_ISWP = 0 ;
+		return ;
+	}
+
+	var r = randomInt(500, 800) ;
+	var a = randomInt(0, 2 * Math.PI * 100) / 100 ;
+	var s1 = randomInt(10, 50) ;
+	var s2 = randomInt(100, 400) ;
+
+	spawnSweepParticle(r, a, s1, s2) ;
+
+	_ISWP++ ;
+
+	doSweep2() ;
+}
+
+function spawnSweepParticle(r, a, s1, s2)
+{
+	var cx = 512 - 25 ;
+	var cy = 384 - 25 ;
+
+	var xFin = cx + Math.floor( r * Math.cos(a)) ;
+	var yFin = cy + Math.floor( r * Math.sin(a)) ;
+
+	var img = document.createElement('img') ;
+
+	img.src = 'img/sweep-prim.png' ;
+
+	img.style.webkitTransition = 'all 5s' ;
+	img.style.width = s1 + 'px' ;
+	img.style.height = s1 + 'px' ;
+
+	img.style.left = cx + 'px' ;
+	img.style.top = cy + 'px' ;
+
+	img.style.position = 'absolute' ;
+	img.style.zIndex = 50 ;
+
+	document.getElementById('thebody').appendChild(img) ;
+
+	window.setTimeout(function(){
+		img.style.left = xFin + 'px' ;
+		img.style.top = yFin + 'px' ;
+		img.style.width = s2 + 'px' ;
+		img.style.height = s2 + 'px' ;
+		img.style.opacity = 0 ;
+	},50) ;
+
+	window.setTimeout(function(){
+		img.parentNode.removeChild(img) ;
+	},3000) ;
+}
+
+function doSweep()
 {
 	_R = 5 ;
 	return true ;
@@ -211,7 +351,7 @@ body{
 }
 </style>
 </head>
-<body>
+<body id="thebody">
 
 
 <canvas id="g-cnv-neg" width="512" height="384"></canvas>
@@ -219,6 +359,7 @@ body{
 
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
 
+<img id="sweep-prim" src="img/sweep-prim.png" style="display:none" />
 <script>window.setTimeout('main()',200)</script>
 </body>
 </html>
