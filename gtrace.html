@@ -75,7 +75,7 @@ function doSweep3()
 	var r = randomInt(100, 200) ;
 	var a = randomInt(0, 2 * Math.PI * 100) / 100 ;
 	var rp1 = randomInt(2, 5) ;
-	var rp2 = randomInt(15, 25) ;
+	var rp2 = randomInt(15, 50) ;
 
 	// current values, as they're being 'tweened'
 	var sc ;
@@ -102,7 +102,7 @@ var _ISWP3 ;
 function drawSweep3()
 {
 	if(!_RREG.length) return ;
-	
+
 	var x, y, rp ;
 
 	var img = document.getElementById('sweep-prim') ;
