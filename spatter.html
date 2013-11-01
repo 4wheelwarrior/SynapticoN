@@ -11,6 +11,18 @@
 	#spatter-paint
 	{
 		position: absolute ;
+		z-index: 50 ;
+	}
+
+	#cnv-glass
+	{
+		position: absolute ;
+		z-index: 100 ;
+	}
+
+	.bhole{
+		position: absolute ;
+		z-index: 200 ;
 	}
 </style>
 <script language="javascript">
@@ -26,9 +38,12 @@ var _GPCL = [] ; // glass particles
 // Used to decrement spatter size every n'th cycle
 var _IDREG = 0 ;
 
-var _IDRIP ;
+var _IDRIP ; // drip registry
+var _IGPR ; // glass particle registry
 
 var _elBody ;
+
+var _imgGP ;
 
 function main()
 {
@@ -38,9 +53,15 @@ function main()
 
 	_elBody = document.getElementById('thebody') ;
 
+	_imgGP = document.getElementById('glass-particle') ;
+
+	_cnvGL = document.getElementById('cnv-glass') ;
+	_ctxGL = _cnvGL.getContext('2d') ;
+
 	//_elBody.addEventListener('mousedown',holeClick,false) ;
 
 	_IDRIP 	= window.setInterval('updateDREG()',200) ;
+	_IGPR 	= window.setInterval('updateGPREG()',100) ;
 
 	initSpatterCnv() ;
 }
@@ -68,60 +89,69 @@ function deathSeq()
 	window.setTimeout('deathSeq()',randomInt(100,600)) ;
 }
 
-function spawnGlassExplosion(cx, cy, rNom)
+var _GPREG = [] ; // glass particles [[cx, cy, r, a, w, h, rC], [], [] ... ]
+
+function updateGPREG()
 {
-	console.log('Spawning glass explosion '+cx+', '+cy+', '+rNom) ;
+	var cx, cy, r, a, s, rC ;
+	var x, y ;
+
+	_ctxGL.clearRect(0,0,1024,768) ;
+
+	for(var i = 0; i < _GPREG.length; i++)
+	{
+		cx 	= _GPREG[i][0] ;
+		cy 	= _GPREG[i][1] ;
+		r 	= _GPREG[i][2] ;
+		a 	= _GPREG[i][3] ;
+		w 	= _GPREG[i][4] ;
+		h 	= _GPREG[i][5] ;
+		rC 	= _GPREG[i][6] ;
+
+		// If particle is "dead", skip it
+		if(rC >= r)
+		{
+			_GPREG.splice(i,1) ;
+			continue ;
+		}
+
+		rC += Math.floor(r / 5) ;
+		if(rC > r) rC = r ;
+
+		w-- ;
+		if(w == 0) w = 0 ;
+
+		x = cx + Math.floor(rC * Math.cos(a)) ;
+		y = cy + Math.floor(rC * Math.sin(a)) ;
+
+		drawGP(x, y, w, h) ;
+
+		// Save updated width/height
+		_GPREG[i][4] = w ;
+		_GPREG[i][6] = rC ;
+	}
+}
+
+function drawGP(cx, cy, w, h)
+{
+	_ctxGL.drawImage(_imgGP,0,0,24,24,cx,cy,w,h) ;
+}
+
+
+function spawnGlassExplosion(cx, cy, rNom, p)
+{
 	var r ;
 
-	for(var i = 0; i < 100; i++)
+	for(var i = 0; i < p; i++)
 	{
-		r = rNom * randomInt((100 - 40),(100 + 40)) / 100 ;
+		r = rNom * randomInt((100 - 50),(100 + 50)) / 100 ;
 		r = Math.floor(r) ;
 
 		a = randomInt(0, 2 * Math.PI * 100) / 100 ;
 		s = randomInt(5,30) ;
-		spawnGlassParticle(cx, cy, r, a, s) ;
+		
+		_GPREG.push([cx, cy, r, a, s, s, 0]) ;
 	}
-}
-
-function spawnGlassParticle(cx, cy, r, a, s)
-{
-	var xFin, yFin ;
-
-	xFin = cx + r * Math.cos(a) ;
-	yFin = cy + r * Math.sin(a) ;
-
-	xFin = Math.floor(xFin) ;
-	yFin = Math.floor(yFin) ;
-
-	var img = document.createElement('img') ;
-	img.src = 'img/glass-particle.png' ;
-	img.style.position = 'absolute' ;
-	img.style.zIndex = 300 ;
-	
-	img.style.webkitTransform = 'rotate(' + randomInt(0, 360) + 'deg)' ;
-
-	img.style.left = cx + 'px' ;
-	img.style.top = cy + 'px' ;
-
-	img.style.width = s + 'px' ;
-	img.style.height = s + 'px' ;
-
-	img.style.webkitTransition = 'all 1s' ;
-	img.style.webkitTransitionTimingFunction = 'ease-out' ;
-
-	_elBody.appendChild(img) ;
-
-	window.setTimeout(function(){
-		img.style.left = xFin + 'px' ;
-		img.style.top = yFin + 'px' ;
-		img.style.opacity = 0 ;
-		img.style.webkitTransform = 'rotateY(' + randomInt(0,360) + 'deg)' ;
-	},10) ;
-
-	window.setTimeout(function(){
-		img.parentNode.removeChild(img) ;
-	},3000) ;
 }
 
 var _IQ = 0 ;
@@ -136,8 +166,8 @@ function holeClick()
 	cx = randomInt(qb[0], qb[1]) ;
 	cy = randomInt(qb[2], qb[3]) ;
 
-	// Trigger a glass explosion with random rNom
-	spawnGlassExplosion(cx, cy, randomInt(200,300)) ;
+	// Trigger a glass explosion with random rNom and particle count
+	spawnGlassExplosion(cx, cy, randomInt(200,300), randomInt(20,80)) ;
 
 	// Create and append bullet hole
 	var img = document.createElement('img') ;
@@ -241,7 +271,7 @@ function formSpatter(cx, cy, rMax)
 {
 	for(var i = 0; i < 5; i++)
 	{
-		console.log('Running formSpatter with '+cx+', '+cy+', '+rMax) ;
+		//console.log('Running formSpatter with '+cx+', '+cy+', '+rMax) ;
 		doSpray(cx, cy, rMax) ;
 	}
 }
@@ -368,7 +398,7 @@ function randomInt(min, max)
 <body id="thebody">
 	<a style="position:absolute; z-index: 300" href="javascript:deathSeq()">DEATH SEQUENCE</a>
 	<a style="position:absolute; z-index: 300; top: 50px" href="javascript:cleanup()">CLEANUP</a>
-	<a style="position:absolute; z-index: 300; top: 100px" href="javascript:spawnGlassExplosion(300,300,200)">GLASS</a>
+	<a style="position:absolute; z-index: 300; top: 100px" href="javascript:spawnGlassExplosion(300,300,200,100)">GLASS</a>
 	
 	<!--
 	<img src="img/bullet-hole-3.png" class="bhole" style="top: 300px; left: 300px"/>
@@ -378,19 +408,14 @@ function randomInt(min, max)
 	-->
 
 	<img style="display:none" id="spatter-prim" src="img/spatter-prim.png"></canvas>
-
+	<img style="display:none" id="glass-particle" src="img/glass-particle.png"></canvas>
 	<!-- composite many spatter primitives @ random radii
 		 and positions to make a unique 'spatter sprite',
 		 which is then plastered all over #spatter-paint in a fanout pattern -->
 
+	<canvas id="cnv-glass" width="1024" height="768"></canvas>
 	<canvas id="spatter-paint" width="1024" height="768"></canvas>
 
-	<style>
-	.bhole{
-		position: absolute ;
-		z-index: 200 ;
-	}
-	</style>
 	<script language="javascript">window.setTimeout('main()',200)</script>
 </body>
 </html>
