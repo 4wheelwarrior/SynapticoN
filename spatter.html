@@ -4,7 +4,10 @@
 	body
 	{
 		background: #0000 ;
+		margin: 0 ;
+		padding: 0 ;
 	}
+
 	#spatter-paint
 	{
 		position: absolute ;
@@ -39,10 +42,15 @@ function main()
 
 	_IDRIP 	= window.setInterval('updateDREG()',200) ;
 
-	cleanup() ;
+	initSpatterCnv() ;
 }
 
 function cleanup()
+{
+	window.location.href = 'spatter.html' ;
+}
+
+function initSpatterCnv()
 {
 	_ctxSP.fillStyle = '#000000' ;
 	//_ctxSP.clearRect(0,0,1024,768) ;
