@@ -86,7 +86,7 @@ function deathSeq()
 	_iDeath++ ;
 	if(_iDeath > 5) return ;
 	holeClick() ;
-	window.setTimeout('deathSeq()',randomInt(100,600)) ;
+	window.setTimeout('deathSeq()',randomInt(400,600)) ;
 }
 
 var _GPREG = [] ; // glass particles [[cx, cy, r, a, w, h, rC], [], [] ... ]

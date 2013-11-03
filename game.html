@@ -25,179 +25,21 @@
 
 <div 	id="revolver-cyl"						style="z-index: 3000"></div>
 
-<!--
-	// [top, left, isRotated]
-
--->
-<script>
-
-var C_SEGPOS = [[12,7,1], [6,0,0], [0,7,1], [6,14,0], [19,14,0], [23,7,1], [19,0,0]] ;
-var C_SEGTBL = [
-	[0,1,1,1,1,1,1],
-	[0,0,0,1,1,0,0],
-	[1,0,1,1,0,1,1],
-	[1,0,1,1,1,1,0],
-	[1,1,0,1,1,0,0],
-	[1,1,1,0,1,1,0],
-	[1,1,0,0,1,1,1],
-	[0,0,1,1,1,0,0],
-	[1,1,1,1,1,1,1],
-	[1,1,1,1,1,0,0]
-] ;
-function drawSegments(x,y,i)
-{
-	var el ;
-
-	for(var j = 0; j < 7; j++)
-	{
-		//console.log('drawing segments at '+j) ;
-
-		el = document.createElement('img') ;
-		el.src = 'img/7seg.png' ;
-		el.style.position = 'absolute' ;
-		el.style.zIndex = 2600 ;
-		el.id = 'seg-'+i+'-'+j ;
-
-		el.style.top 	= y + C_SEGPOS[j][0] + 'px' ;
-		el.style.left 	= x + C_SEGPOS[j][1] + 'px' ;
-
-		if(C_SEGPOS[j][2] == 1) el.style.webkitTransform = 'rotate(90deg)' ;
-
-		document.getElementById('segment-container').appendChild(el) ;
-	}
-}
-
-function initSegments()
-{
-	// "Time" segments
-	drawSegments(674,673,0) ;
-	drawSegments(705,673,1) ;
-	drawSegments(737,673,2) ;
-
-	// "Score" segments
-	drawSegments(899,673,3) ;
-	drawSegments(933,673,4) ;
-
-	// Turn off segments
-	setDigit(0,-1) ;
-	setDigit(1,-1) ;
-	setDigit(2,-1) ;
-	setDigit(3,-1) ;
-	setDigit(4,-1) ;
-}
-
-function setDigit(iDig,val)
-{
-	var id ;
-	var el ;
-
-	// If value is negative, turn off segments
-	if(val < 0)
-	{
-		for(var i = 0; i < 7; i++)
-		{
-			id = 'seg-' + iDig + '-' + i ;
-			document.getElementById(id).style.display = 'none' ;
-		}
-
-		return ;
-	}
-
-	// Iterate over truth table for digit we're displaying
-	for(var i = 0; i < C_SEGTBL[val].length; i++)
-	{
-		id = 'seg-' + iDig + '-' + i ;
-		el = document.getElementById(id) ;
-
-		if(!C_SEGTBL[val][i]) el.style.display = 'none' ;
-		if(C_SEGTBL[val][i]) el.style.display = 'block' ;
-	}
-}
-
-var _T = 370 ; // Time, expressed in seconds ...
-var _S = 0 ;
-function setScore(s)
-{
-	var sOnes, sTens ;
-
-	// Break down digits
-	if(s > 9)
-	{
-		sOnes = s % 10 ;
-		sTens = Math.floor(s / 10) ;
-	}
-	else
-	{
-		sOnes = s ;
-		sTens = -1 ;
-	}
-
-	// Clear display
-	setDigit(3,-1) ;
-	setDigit(4,-1) ;
-
-	// Re-draw it, after a short flicker
-	setDigit(3,sTens) ;
-	setDigit(4,sOnes) ;
-}
-
-function setTimer(t)
-{
-	var tSecOnes, tSecTens, tMins ;
-
-	setDigit(0,-1) ;
-	setDigit(1,-1) ;
-	setDigit(2,-1) ;
-
-	// Break down digits
-	if(t < 60)
-	{
-		tMins = -1 ;
-		tSecTens = Math.floor(t / 10) ;
-		tSecOnes = t % 10 ;
-	}
-	else
-	{
-		tMins = Math.floor(t / 60) ;
-		t -= (60 * tMins) ;
-		tSecTens = Math.floor(t / 10) ;
-		tSecOnes = t % 10 ;
-	}
-
-	setDigit(0,tMins) ;
-	setDigit(1,tSecTens) ;
-	setDigit(2,tSecOnes) ;
-}
-
-function testDigits()
-{
-	setDigit(1,0) ;
-}
-
-function scorePlus()
-{
-	_S++ ;
-	setScore(_S) ;
-}
-
-function timeTick()
-{
-	if(_T < 0) return ;
-	console.log('T mod 60 ' + (_T % 60))
-	
-
-	_T-- ;
-	if((_T % 60) == 0) nextBG() ;
-	setTimer(_T) ;
-}
-
-window.setTimeout('initSegments()',500) ;
-window.setInterval('timeTick()',1000) ;
-</script>
 <div id="segment-container">
-	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px" />
+	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px; z-index:" />
 </div>
 
+<img 	id="spatter-prim" 	src="img/spatter-prim.png" 		style="display:none" />
+<img 	id="glass-particle" src="img/glass-particle.png" 	style="display:none" />
+
+<!-- composite many spatter primitives @ random radii
+	 and positions to make a unique 'spatter sprite',
+	 which is then plastered all over #spatter-paint in a fanout pattern -->
+
+<div id="red-matte" style="z-index: 3800"></div>
+
+<canvas id="spatter-paint" 		width="1024" 	height="768"	style="z-index: 3500"></canvas>
+<canvas id="cnv-glass" 			width="1024" 	height="768"	style="z-index: 3000"></canvas>
 
 <div 	id="hardware"							style="z-index: 2500; pointer-events: none"></div>
 
@@ -317,6 +159,22 @@ var C_GFDELAY 		= 4400 ;
 // (includes allowance for draw time, fadeout time, and blank space)
 var C_GCYC_INT 		= 10000 ;
 
+var C_SEGPOS = [[12,7,1], [6,0,0], [0,7,1], [6,14,0], [19,14,0], [23,7,1], [19,0,0]] ;
+var C_SEGTBL = [
+	[0,1,1,1,1,1,1],
+	[0,0,0,1,1,0,0],
+	[1,0,1,1,0,1,1],
+	[1,0,1,1,1,1,0],
+	[1,1,0,1,1,0,0],
+	[1,1,1,0,1,1,0],
+	[1,1,0,0,1,1,1],
+	[0,0,1,1,1,0,0],
+	[1,1,1,1,1,1,1],
+	[1,1,1,1,1,0,0]
+] ;
+
+var _T = 420 ; 	// Time, expressed in seconds ...
+var _S = 0 ;	// Score (++ every time 5 rounds collected)
 
 // "Geometry Draw Queue"
 // Contains center points, radii for geometry cells
@@ -342,6 +200,9 @@ var _iDFLoc 		= _iDF - C_DFWIN_SIZE / 2 ;
 // Interval for geometry drawing routine
 // Gets set and cleared dynamically
 var _IDG ;
+
+// Interval for clock timer
+var _ITMR ;
 
 
 var C_SHDRAD		= 6 ;		// Shard sprite radius  (canvas coords)
@@ -393,6 +254,8 @@ var _BULLETS		= [] ;		// Bullet elements
 var _bgIdx 			= 0 ;		// Background image we're currently on
 var _INBG ;
 
+var _IGCY ;						// Geometry cycle interval
+
 // Starting times of each audio loop
 // They're all the same length
 var C_LOOP_DICT 	= [0,3,6,9,12,15,18] ;
@@ -408,6 +271,24 @@ var _ILPP ;
 var _IBSP ;
 
 var _PAUSEGDQ = false ;
+
+var _imgSP ; // spatter particle
+var _imgGP ; // glass particle
+
+var _cnvSP ; // spatter canvas/context
+var _ctxSP ;
+
+var _DREG = [] ; // blood drips
+var _GPCL = [] ; // glass particles
+
+// Counts calls to updateDREG
+// Used to decrement spatter size every n'th cycle
+var _IDREG = 0 ;
+
+var _IDRIP ; // drip registry
+var _IGPR ; // glass particle registry
+
+var _elBody ;
 
 function main()
 {
@@ -435,6 +316,17 @@ function main()
 
 	_elCyl 	= document.getElementById('revolver-cyl') ;
 
+	_imgSP  = document.getElementById('spatter-prim') ;
+	_cnvSP 	= document.getElementById('spatter-paint') ;
+	_ctxSP 	= _cnvSP.getContext('2d') ;
+
+	_elBody = document.getElementById('thebody') ;
+
+	_imgGP = document.getElementById('glass-particle') ;
+
+	_cnvGL = document.getElementById('cnv-glass') ;
+	_ctxGL = _cnvGL.getContext('2d') ;
+
 	_AUDIO  = document.getElementById('snd-sprite') ;
 
 	renderBubbleSprite() ;
@@ -442,6 +334,8 @@ function main()
 	renderShardSprite() ;
 
 	initBullets() ;
+
+	initSegments() ;
 
 	// Start the loop here too, because it'll sound sexy ...
 	// And audio needs to be triggered by a user event
@@ -452,13 +346,15 @@ function main()
 	_ILPP = window.setInterval('doAudioLoop()',4000) ;
 
 	doGCycle() ;
-	window.setInterval('doGCycle()',C_GCYC_INT) ;
+	_IGCY = window.setInterval('doGCycle()',C_GCYC_INT) ;
 
 	// Fire up other tickers
 	window.setInterval('updateShardReg()', 200) ;
 	window.setInterval('shardRegGC()', 2000) ;
 	_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
 	window.setInterval('processHMQ()', 200) ;
+
+	_ITMR = window.setInterval('timeTick()',1000) ;
 }
 
 function nextBG()
@@ -1136,7 +1032,7 @@ function addBullet(isGameFacing)
 	// If we just loaded the last player-facing bullet, trigger death sequence
 	if(_ICYL == 4)
 	{
-		window.setTimeout(function(){alert('DEATH TIME!') ; unloadCyl() ;},200) ;
+		runDeathSequence() ;
 		_ICYL = 0 ;
 		return ;
 	}
@@ -1340,6 +1236,511 @@ function spawnRay(x1,y1,x2,y2)
 	ctx.stroke() ;
 }
 
+
+/***************************************************
+*
+*					 7seg Routines
+*
+****************************************************/
+
+function drawSegments(x,y,i)
+{
+	var el ;
+
+	for(var j = 0; j < 7; j++)
+	{
+		//console.log('drawing segments at '+j) ;
+
+		el = document.createElement('img') ;
+		el.src = 'img/7seg.png' ;
+		el.style.position = 'absolute' ;
+		el.style.zIndex = 2600 ;
+		el.id = 'seg-'+i+'-'+j ;
+
+		el.style.top 	= y + C_SEGPOS[j][0] + 'px' ;
+		el.style.left 	= x + C_SEGPOS[j][1] + 'px' ;
+
+		if(C_SEGPOS[j][2] == 1) el.style.webkitTransform = 'rotate(90deg)' ;
+
+		document.getElementById('segment-container').appendChild(el) ;
+	}
+}
+
+function initSegments()
+{
+	// "Time" segments
+	drawSegments(674,673,0) ;
+	drawSegments(705,673,1) ;
+	drawSegments(737,673,2) ;
+
+	// "Score" segments
+	drawSegments(899,673,3) ;
+	drawSegments(933,673,4) ;
+
+	// Turn off segments
+	setDigit(0,-1) ;
+	setDigit(1,-1) ;
+	setDigit(2,-1) ;
+	setDigit(3,-1) ;
+	setDigit(4,-1) ;
+}
+
+function setDigit(iDig,val)
+{
+	var id ;
+	var el ;
+
+	// If value is negative, turn off segments
+	if(val < 0)
+	{
+		for(var i = 0; i < 7; i++)
+		{
+			id = 'seg-' + iDig + '-' + i ;
+			document.getElementById(id).style.display = 'none' ;
+		}
+
+		return ;
+	}
+
+	// Iterate over truth table for digit we're displaying
+	for(var i = 0; i < C_SEGTBL[val].length; i++)
+	{
+		id = 'seg-' + iDig + '-' + i ;
+		el = document.getElementById(id) ;
+
+		if(!C_SEGTBL[val][i]) el.style.display = 'none' ;
+		if(C_SEGTBL[val][i]) el.style.display = 'block' ;
+	}
+}
+
+function setScore(s)
+{
+	var sOnes, sTens ;
+
+	// Break down digits
+	if(s > 9)
+	{
+		sOnes = s % 10 ;
+		sTens = Math.floor(s / 10) ;
+	}
+	else
+	{
+		sOnes = s ;
+		sTens = -1 ;
+	}
+
+	// Clear display
+	setDigit(3,-1) ;
+	setDigit(4,-1) ;
+
+	// Re-draw it, after a short flicker
+	setDigit(3,sTens) ;
+	setDigit(4,sOnes) ;
+}
+
+function setTimer(t)
+{
+	var tSecOnes, tSecTens, tMins ;
+
+	setDigit(0,-1) ;
+	setDigit(1,-1) ;
+	setDigit(2,-1) ;
+
+	// Break down digits
+	if(t < 60)
+	{
+		tMins = -1 ;
+		tSecTens = Math.floor(t / 10) ;
+		tSecOnes = t % 10 ;
+	}
+	else
+	{
+		tMins = Math.floor(t / 60) ;
+		t -= (60 * tMins) ;
+		tSecTens = Math.floor(t / 10) ;
+		tSecOnes = t % 10 ;
+	}
+
+	setDigit(0,tMins) ;
+	setDigit(1,tSecTens) ;
+	setDigit(2,tSecOnes) ;
+}
+
+function testDigits()
+{
+	setDigit(1,0) ;
+}
+
+function scorePlus()
+{
+	_S++ ;
+	setScore(_S) ;
+}
+
+function timeTick()
+{
+	if(_T < 0) return ;
+
+	_T-- ;
+	if((_T % 60) == 0) nextBG() ;
+	setTimer(_T) ;
+}
+
+
+/***************************************************
+*
+*					 Death Sequence Routines
+*
+****************************************************/
+
+function runDeathSequence()
+{
+	window.clearInterval(_IBSP) ;
+	window.clearInterval(_IGCY) ;
+	window.clearInterval(_ITMR) ;
+
+	_cnvG.style.display = 'none' ;
+	_cnvSP.style.display = 'block' ;
+	_cnvGL.style.display = 'block' ;
+
+	_IDRIP 	= window.setInterval('updateDREG()',200) ;
+	_IGPR 	= window.setInterval('updateGPREG()',100) ;
+
+	_elCyl.style.webkitTransform = 'rotate(360deg)' ;
+	_elCyl.style.webkitTransition = '-webkit-transform 1s, top 4s' ;
+	_elCyl.style.top = '200px' ;
+
+	window.setTimeout(function(){
+		_elCyl.style.webkitTransform = 'rotate(-360deg)' ;
+		unloadCyl() ;
+		deathSeq() ;
+
+		document.getElementById('red-matte').style.display = 'block' ;
+	
+		window.setTimeout(function(){
+			document.getElementById('red-matte').style.opacity = 0.3 ;
+		},2000) ;
+
+		window.setTimeout(function(){
+			_elCyl.style.display = 'none' ;
+		},3000) ;
+	},3000) ;
+
+
+}
+
+var _iDeath = 0 ;
+function deathSeq()
+{
+	_iDeath++ ;
+	if(_iDeath > 5) return ;
+	holeClick() ;
+	window.setTimeout('deathSeq()',randomInt(400,600)) ;
+}
+
+var _GPREG = [] ; // glass particles [[cx, cy, r, a, w, h, rC], [], [] ... ]
+
+function updateGPREG()
+{
+	var cx, cy, r, a, s, rC ;
+	var x, y ;
+
+	_ctxGL.clearRect(0,0,1024,768) ;
+
+	for(var i = 0; i < _GPREG.length; i++)
+	{
+		cx 	= _GPREG[i][0] ;
+		cy 	= _GPREG[i][1] ;
+		r 	= _GPREG[i][2] ;
+		a 	= _GPREG[i][3] ;
+		w 	= _GPREG[i][4] ;
+		h 	= _GPREG[i][5] ;
+		rC 	= _GPREG[i][6] ;
+
+		// If particle is "dead", skip it
+		if(rC >= r)
+		{
+			_GPREG.splice(i,1) ;
+			continue ;
+		}
+
+		rC += Math.floor(r / 4) ;
+		if(rC > r) rC = r ;
+
+		w-- ;
+		if(w == 0) w = 0 ;
+
+		x = cx + Math.floor(rC * Math.cos(a)) ;
+		y = cy + Math.floor(rC * Math.sin(a)) ;
+
+		drawGP(x, y, w, h) ;
+
+		// Save updated width/height
+		_GPREG[i][4] = w ;
+		_GPREG[i][6] = rC ;
+	}
+}
+
+function drawGP(cx, cy, w, h)
+{
+	_ctxGL.drawImage(_imgGP,0,0,24,24,cx,cy,w,h) ;
+}
+
+
+function spawnGlassExplosion(cx, cy, rNom, p)
+{
+	var r ;
+
+	for(var i = 0; i < p; i++)
+	{
+		r = rNom * randomInt((100 - 50),(100 + 50)) / 100 ;
+		r = Math.floor(r) ;
+
+		a = randomInt(0, 2 * Math.PI * 100) / 100 ;
+		s = randomInt(5,30) ;
+		
+		_GPREG.push([cx, cy, r, a, s, s, 0]) ;
+	}
+}
+
+var _IQ = 0 ;
+function holeClick()
+{
+	var cx, cy ;
+	var x, y ;
+	var qLoc ;
+
+	// Pick random cx, cy from quadrant
+	var qb = getQuadrantBounds(_IQ) ;
+	cx = randomInt(qb[0], qb[1]) ;
+	cy = randomInt(qb[2], qb[3]) ;
+
+	// Trigger a glass explosion with random rNom and particle count
+	spawnGlassExplosion(cx, cy, randomInt(100,200), randomInt(70,100)) ;
+
+	window.setTimeout(function(){
+		spawnGlassExplosion(cx, cy, randomInt(200,300), randomInt(20,60)) ;
+	},100) ;
+
+	// Create and append bullet hole
+	var img = document.createElement('img') ;
+	img.className = 'bhole' ;
+	img.src = 'img/bullet-hole-' + randomInt(1,4) + '.png' ;
+
+	img.style.position = 'absolute' ;
+	img.style.webkitTransform = 'rotate(' + randomInt(0, 360) + 'deg)' ;
+
+	// Calculate top/left position of image from cx, cy and dimensions
+	x = cx - Math.floor(img.width / 2) ;
+	y = cy - Math.floor(img.height / 2) ;
+
+	img.style.left = x + 'px' ;
+	img.style.top = y + 'px' ;
+
+	window.setTimeout(function(){
+		_elBody.appendChild(img) ;
+	},75) ;
+	
+	// Copy quadrant index into local var so timeout
+	// triggers on proper quadrant (otherwise it'd be incremented already ...)
+	qLoc = _IQ ;
+
+	window.setTimeout(function(){sprayBlood(qLoc)},500) ;
+
+	_IQ++ ;
+
+	if(_IQ > 3) _IQ = 0 ;
+}
+
+// Quadrant to spray in ... Q1 is NorthWest, goes CW from there...
+var C_QPAD = 100 ;
+function sprayBlood(iQ)
+{
+	var cx, cy ;
+	var xMin, yMin, xMax, yMax ;
+	var rMax ;
+
+	var qb = getQuadrantBounds(iQ) ;
+
+	xMin = qb[0] ;
+	xMax = qb[1] ;
+	yMin = qb[2] ;
+	yMax = qb[3] ;
+
+	cx = randomInt(xMin, xMax) ;
+	cy = randomInt(yMin, yMax) ;
+
+	// Inner ring
+	rMax = randomInt(50,300) ;
+	formSpatter(cx, cy, rMax) ;
+
+	// Mid Ring
+	rMax = randomInt(250,500) ;
+	formSpatter(cx, cy, rMax) ;
+
+	// Outer ring
+	rMax = randomInt(400,800) ;
+	formSpatter(cx, cy, rMax) ;
+}
+
+function getQuadrantBounds(iQ)
+{
+	var xMin, xMax, yMin, yMax ;
+
+	if(iQ == 0){
+		xMin = C_QPAD ;
+		xMax = 512 - C_QPAD ;
+		yMin = C_QPAD ;
+		yMax = 384 - C_QPAD ;
+	}
+
+	if(iQ == 1){
+		xMin = 512 - C_QPAD ;
+		xMax = 1024 - C_QPAD ;
+		yMin = C_QPAD ;
+		yMax = 384 - C_QPAD ;
+	}
+
+	if(iQ == 2){
+		xMin = C_QPAD; 
+		xMax = 512 - C_QPAD ;
+		yMin = 384 + C_QPAD ;
+		yMax = 768 - C_QPAD ;
+	}
+
+	if(iQ == 3){
+		xMin = 512 + C_QPAD ;
+		xMax = 1024 - C_QPAD ;
+		yMin = 384 + C_QPAD ;
+		yMax = 768 - C_QPAD ;
+	}
+
+	return([xMin, xMax, yMin, yMax]) ;
+}
+
+// Basically calls doSpray a few times
+// with different max radii to form full on splatter
+function formSpatter(cx, cy, rMax)
+{
+	for(var i = 0; i < 5; i++)
+	{
+		//console.log('Running formSpatter with '+cx+', '+cy+', '+rMax) ;
+		doSpray(cx, cy, rMax) ;
+	}
+}
+
+// Does a single spray @ random angle
+// centered at cx,cy with random radius
+function doSpray(cx, cy, rMax)
+{
+	r = randomInt(50,rMax) ;
+
+	a1 = randomInt(0, Math.floor(2 * Math.PI * 100)) / 100 ;
+	a2 = a1 + randomInt(Math.PI * 25, Math.PI * 50) / 100 ;
+
+	spray(cx, cy, a1, a2, r, 30) ;
+}
+
+// Do a blood spray centered at cx,cy
+// fanning out between a1 and a2
+// reaching out to average radius of rNom
+// with 'p' particle count
+var C_BPSIZE_MIN = 10 ;
+var C_BPSIZE_MAX = 90 ;
+var C_SPRAYR_ORG = 30 ;
+var C_RDRIP 	 = 20 ; // max radius which will drip
+
+function spray(cx, cy, a1, a2, rNom, p)
+{
+	var r ;
+	var a ;
+
+	var s ; // particle size
+
+	var x, y ; // position of particle being plotted
+
+	var a1int ;
+	var a2int ;
+
+	for(var i = 0; i < p; i++)
+	{
+		//if(a2 > a1) a = randomInt(Math.floor(a1 * 100), Math.floor(a2 * 100)) / 100 ;
+		//if(a2 < a1) a = randomInt(Math.floor(a2 * 100), Math.floor(a1 * 100)) / 100 ;
+		a1int = Math.floor(a1 * 100) ;
+		a2int = Math.floor(a2 * 100) ;
+
+		//console.log('randomizing angle between '+a1int+' and '+a2int) ;
+
+		a = randomInt(a1int,a2int) / 100 ;
+
+		r = rNom * ( randomInt((100 - C_SPRAYR_ORG),(100 + C_SPRAYR_ORG)) / 100 ) ;
+		r = Math.floor(r) ;
+		r = randomInt(0,r) ;
+
+		s = randomInt(C_BPSIZE_MIN, C_BPSIZE_MAX) ;
+
+		x = Math.floor(cx + r * Math.cos(a)) ;
+		y = Math.floor(cy + r * Math.sin(a)) ;
+
+		_ctxSP.drawImage(_imgSP, 0, 0, 50, 50, x, y, s, s) ;
+
+		if(s < C_RDRIP) _DREG.push([x,y,(s - 1),(y + randomInt(50,200))]) ;
+	}
+}
+
+function updateDREG()
+{
+	var x, y, yFin, s, sOrg ;
+	var t ;
+	var p = 20 ;
+
+	for(var i = 0; i < _DREG.length; i++)
+	{
+		// Randomly skip a draw every so often ... makes drips fall at diff. rates
+		//var t = randomInt(0,100) ;
+		//if(t < p) continue ;
+
+		x 		= _DREG[i][0] ;
+		y 		= _DREG[i][1] ;
+		s 		= _DREG[i][2] ;
+		yFin 	= _DREG[i][3] ;
+
+		y += 1 ;
+
+		// Calculate organic factor
+		sOrg 	= s * ( randomInt((100 - 20), (100 + 40)) / 100) ;
+		sOrg 	= Math.floor(sOrg) ;
+
+		// Every 20th cycle, move x position
+		if(!(_IDREG % 30))
+		{
+			x += randomInt(-2,2) ;
+			_DREG[i][0] = x ;
+		}
+
+		// Re-center blood drip
+		x -= Math.floor(Math.abs(sOrg - s) / 2) ;
+
+		if(y > yFin) continue ;
+
+		// Every 20th cycle, decrease drip size
+		if(!(_IDREG % 15)) s-- ;	
+
+		// Floor out size at 3
+		if(s < 3) s = 3 ;
+
+		// Paint a drip at the new y location
+		_ctxSP.drawImage(_imgSP, 0, 0, 50, 50, x, y, sOrg, sOrg) ;
+
+		// Save new Y position into drip reg
+		_DREG[i][1] = y ;
+		_DREG[i][2] = s ;
+	}
+
+	_IDREG++ ;
+
+	if(_IDREG > 10000) _IDREG = 0 ;
+}
 
 /***************************************************
 *
@@ -1627,8 +2028,8 @@ function randomInt(min, max)
 	left: 450px ;
 	top: 595px ;
 
-	/* -webkit-transition-timing-function: ease-in-out ; */
-	-webkit-transition: -webkit-transform 1s;
+	-webkit-transition-timing-function: ease-out ;
+	-webkit-transition: -webkit-transform 1s ;
 }
 
 #ray-container{
@@ -1707,6 +2108,12 @@ function randomInt(min, max)
 	background: url('img/hardware.png') ;
 }
 
+.bhole
+{
+	position: absolute ;
+	z-index: 3600 ;
+}
+
 img.disp-seg
 {
 	position: absolute ;
@@ -1717,6 +2124,23 @@ img.disp-seg
 {
 	position: absolute ;
 	z-index: 2600 ;
+}
+
+#spatter-paint, #cnv-glass
+{
+	position: absolute ;
+	display: none ;
+}
+
+#red-matte
+{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	background: url('img/red-matte.png') ;
+	display: none ;
+	opacity: 0.1 ;
+	-webkit-transition: opacity 10s ;
 }
 
 </style>
