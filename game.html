@@ -25,7 +25,7 @@
 
 <div 	id="revolver-cyl"						style="z-index: 3000"></div>
 
-<div 	id="hardware"							style="z-index: 2500"></div>
+<div 	id="hardware"							style="z-index: 2500; pointer-events: none"></div>
 
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
 <div 	id="shard-container"					style="z-index: 1500"></div>
@@ -257,7 +257,7 @@ function main()
 	_elRC 	= document.getElementById('ray-container') ;
 
 	_elBC 	= document.getElementById('bubble-container') ;
-	_elBC.addEventListener(C_TAPEVENT, doClick, true) ;
+	_elBC.addEventListener(C_TAPEVENT, doClick, false) ;
 
 	_elCyl 	= document.getElementById('revolver-cyl') ;
 
