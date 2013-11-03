@@ -16,13 +16,17 @@
 <!--                                  -->
 <!--                 MARKUP           -->
 <!--                                  -->
+<!--
 <img 	id="bezel-tl" 		src="img/bezel.png"					style="z-index: 5000" />
 <img 	id="bezel-tr" 		src="img/bezel.png"					style="z-index: 5000" />
 <img 	id="bezel-bl" 		src="img/bezel.png"					style="z-index: 5000" />
 <img 	id="bezel-br" 		src="img/bezel.png"					style="z-index: 5000" />
+-->
 
+<div 	id="revolver-cyl"						style="z-index: 3000"></div>
 
-<div 	id="revolver-cyl"						style="z-index: 2500"></div>
+<div 	id="hardware"							style="z-index: 2500"></div>
+
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
 <div 	id="shard-container"					style="z-index: 1500"></div>
 
@@ -53,7 +57,7 @@
 
 <a style="position: absolute; z-index: 2000; left: 300px" href="gtrace.html">GTRACE</a>
 
-<div 	id="hmt"></div>
+<div 	id="hmt" style="display: none"></div>
 
 <audio id="snd-sprite" preload="auto">
 	<source src="snd/sound-sprite-proto.wav">
@@ -65,7 +69,7 @@
 <script>
 
 var C_TAPEVENT		= 'touchstart' ;
-var C_DISAUDIO		= false ;
+var C_DISAUDIO		= true ;
 
 var C_SCRWID		= 1024 ;
 var C_SCRHGT		= 768 ;
@@ -1455,8 +1459,9 @@ function randomInt(min, max)
 	width: 130px ;
 	height: 130px ;
 	background: url('img/revolver-cyl.png') ;
-	left: 447px ;
-	top: 15px ;
+	/* left: 447px ; */
+	left: 450px ;
+	top: 595px ;
 
 	/* -webkit-transition-timing-function: ease-in-out ; */
 	-webkit-transition: -webkit-transform 1s;
@@ -1528,6 +1533,14 @@ function randomInt(min, max)
 	left: 999px ;
 	top: 743px ;
 	-webkit-transform: rotate(180deg) ;
+}
+
+#hardware
+{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	background: url('img/hardware.png') ;
 }
 
 </style>
