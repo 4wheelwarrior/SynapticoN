@@ -25,6 +25,184 @@
 
 <div 	id="revolver-cyl"						style="z-index: 3000"></div>
 
+<!--
+	// [top, left, isRotated]
+
+-->
+<script>
+
+var C_SEGPOS = [[12,7,1], [6,0,0], [0,7,1], [6,14,0], [19,14,0], [23,7,1], [19,0,0]] ;
+var C_SEGTBL = [
+	[0,1,1,1,1,1,1],
+	[0,0,0,1,1,0,0],
+	[1,0,1,1,0,1,1],
+	[1,0,1,1,1,1,0],
+	[1,1,0,1,1,0,0],
+	[1,1,1,0,1,1,0],
+	[1,1,0,0,1,1,1],
+	[0,0,1,1,1,0,0],
+	[1,1,1,1,1,1,1],
+	[1,1,1,1,1,0,0]
+] ;
+function drawSegments(x,y,i)
+{
+	var el ;
+
+	for(var j = 0; j < 7; j++)
+	{
+		console.log('drawing segments at '+j) ;
+
+		el = document.createElement('img') ;
+		el.src = 'img/7seg.png' ;
+		el.style.position = 'absolute' ;
+		el.style.zIndex = 2600 ;
+		el.id = 'seg-'+i+'-'+j ;
+
+		el.style.top 	= y + C_SEGPOS[j][0] + 'px' ;
+		el.style.left 	= x + C_SEGPOS[j][1] + 'px' ;
+
+		if(C_SEGPOS[j][2] == 1) el.style.webkitTransform = 'rotate(90deg)' ;
+
+		document.getElementById('segment-container').appendChild(el) ;
+	}
+}
+
+function initSegments()
+{
+	// "Time" segments
+	drawSegments(674,673,0) ;
+	drawSegments(705,673,1) ;
+	drawSegments(737,673,2) ;
+
+	// "Score" segments
+	drawSegments(899,673,3) ;
+	drawSegments(933,673,4) ;
+
+	zeroSegments() ;
+}
+
+function zeroSegments()
+{
+	for(var iDig = 0; iDig < 5; iDig++)
+	{
+		setDigit(iDig,-1) ;
+	}
+}
+
+function setDigit(iDig,val)
+{
+	var id ;
+	var el ;
+
+	// If value is negative, turn off segments
+	if(val < 0)
+	{
+		console.log('VALUE < 0; zeroing digit...') ;
+		for(var i = 0; i < 7; i++)
+		{
+			id = 'seg-' + iDig + '-' + i ;
+			document.getElementById(id).style.display = 'none' ;
+		}
+
+		return ;
+	}
+
+	// Iterate over truth table for digit we're displaying
+	for(var i = 0; i < C_SEGTBL[val].length; i++)
+	{
+		id = 'seg-' + iDig + '-' + i ;
+		el = document.getElementById(id) ;
+
+		if(!C_SEGTBL[val][i]) el.style.display = 'none' ;
+		if(C_SEGTBL[val][i]) el.style.display = 'block' ;
+	}
+}
+
+var _T = 90 ; // Time, expressed in seconds ...
+var _S = 0 ;
+function setScore(s)
+{
+	var sOnes, sTens ;
+
+	// Break down score
+	if(s > 9)
+	{
+		sOnes = s % 10 ;
+		sTens = Math.floor(s / 10) ;
+	}
+	else
+	{
+		sOnes = s ;
+		sTens = -1 ;
+	}
+
+
+	// Clear display
+	setDigit(3,-1) ;
+	setDigit(4,-1) ;
+
+	// Re-draw it, after a short flicker
+	setDigit(3,sTens) ;
+	setDigit(4,sOnes) ;
+}
+
+function setTimer(t)
+{
+	var tSecOnes, tSecTens, tMins ;
+
+	setDigit(0,-1) ;
+	setDigit(1,-1) ;
+	setDigit(2,-1) ;
+
+	if(t < 60)
+	{
+		tMins = -1 ;
+		tSecTens = Math.floor(t / 10) ;
+		tSecOnes = t % 10 ;
+	}
+	else
+	{
+		tMins = Math.floor(t / 60) ;
+		t -= (60 * tMins) ;
+		tSecTens = Math.floor(t / 10) ;
+		tSecOnes = t % 10 ;
+	}
+
+	console.log('t value is '+t) ;
+	console.log('T: (m, sTen, sOne): '+tMins+', '+tSecTens+', '+tSecOnes) ;
+	setDigit(0,tMins) ;
+	setDigit(1,tSecTens) ;
+	setDigit(2,tSecOnes) ;
+}
+
+function testDigits()
+{
+	setDigit(1,0) ;
+}
+
+function scorePlus()
+{
+	_S++ ;
+	setScore(_S) ;
+}
+
+function timeMinus()
+{
+	if(_T < 0) return ;
+
+	_T-- ;
+	setTimer(_T) ;
+}
+
+window.setTimeout('initSegments()',500) ;
+window.setInterval('scorePlus()',2000) ;
+window.setInterval('timeMinus()',500) ;
+</script>
+<div id="segment-container">
+	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px" />
+</div>
+
+
 <div 	id="hardware"							style="z-index: 2500; pointer-events: none"></div>
 
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
@@ -1541,6 +1719,18 @@ function randomInt(min, max)
 	width: 1024px ;
 	height: 768px ;
 	background: url('img/hardware.png') ;
+}
+
+img.disp-seg
+{
+	position: absolute ;
+	z-index: 2600 ;
+}
+
+#seg-colon
+{
+	position: absolute ;
+	z-index: 2600 ;
 }
 
 </style>
