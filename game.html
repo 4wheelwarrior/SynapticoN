@@ -50,7 +50,7 @@ function drawSegments(x,y,i)
 
 	for(var j = 0; j < 7; j++)
 	{
-		console.log('drawing segments at '+j) ;
+		//console.log('drawing segments at '+j) ;
 
 		el = document.createElement('img') ;
 		el.src = 'img/7seg.png' ;
@@ -78,15 +78,12 @@ function initSegments()
 	drawSegments(899,673,3) ;
 	drawSegments(933,673,4) ;
 
-	zeroSegments() ;
-}
-
-function zeroSegments()
-{
-	for(var iDig = 0; iDig < 5; iDig++)
-	{
-		setDigit(iDig,-1) ;
-	}
+	// Turn off segments
+	setDigit(0,-1) ;
+	setDigit(1,-1) ;
+	setDigit(2,-1) ;
+	setDigit(3,-1) ;
+	setDigit(4,-1) ;
 }
 
 function setDigit(iDig,val)
@@ -97,7 +94,6 @@ function setDigit(iDig,val)
 	// If value is negative, turn off segments
 	if(val < 0)
 	{
-		console.log('VALUE < 0; zeroing digit...') ;
 		for(var i = 0; i < 7; i++)
 		{
 			id = 'seg-' + iDig + '-' + i ;
@@ -118,13 +114,13 @@ function setDigit(iDig,val)
 	}
 }
 
-var _T = 90 ; // Time, expressed in seconds ...
+var _T = 370 ; // Time, expressed in seconds ...
 var _S = 0 ;
 function setScore(s)
 {
 	var sOnes, sTens ;
 
-	// Break down score
+	// Break down digits
 	if(s > 9)
 	{
 		sOnes = s % 10 ;
@@ -135,7 +131,6 @@ function setScore(s)
 		sOnes = s ;
 		sTens = -1 ;
 	}
-
 
 	// Clear display
 	setDigit(3,-1) ;
@@ -154,6 +149,7 @@ function setTimer(t)
 	setDigit(1,-1) ;
 	setDigit(2,-1) ;
 
+	// Break down digits
 	if(t < 60)
 	{
 		tMins = -1 ;
@@ -168,8 +164,6 @@ function setTimer(t)
 		tSecOnes = t % 10 ;
 	}
 
-	console.log('t value is '+t) ;
-	console.log('T: (m, sTen, sOne): '+tMins+', '+tSecTens+', '+tSecOnes) ;
 	setDigit(0,tMins) ;
 	setDigit(1,tSecTens) ;
 	setDigit(2,tSecOnes) ;
@@ -186,17 +180,20 @@ function scorePlus()
 	setScore(_S) ;
 }
 
-function timeMinus()
+function timeTick()
 {
 	if(_T < 0) return ;
+	console.log('T mod 60 ' + (_T % 60))
+	
 
 	_T-- ;
+	if((_T % 60) == 0) nextBG() ;
 	setTimer(_T) ;
 }
 
 window.setTimeout('initSegments()',500) ;
 window.setInterval('scorePlus()',2000) ;
-window.setInterval('timeMinus()',500) ;
+window.setInterval('timeTick()',1000) ;
 </script>
 <div id="segment-container">
 	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px" />
@@ -463,8 +460,6 @@ function main()
 	window.setInterval('shardRegGC()', 2000) ;
 	_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
 	window.setInterval('processHMQ()', 200) ;
-
-	_INBG = window.setInterval('nextBG()',60000) ;
 }
 
 function nextBG()
@@ -539,10 +534,6 @@ function doClick(ev)
 
 function doCopy()
 {
-	console.log('doCopy running ...') ;
-	console.log(_ctxTC) ;
-	console.log(_cnvSS) ;
-
 	var x1, x2, w ;
 
 	// Copy some shards
@@ -640,18 +631,15 @@ function renderBubbleSprite()
 
 function clearGCanvas()
 {
-	console.log('clearing G canvas') ;
 	_ctxG.clearRect(0,0,C_GCNV_W,C_GCNV_H) ;
 }
 
 function doGCycle()
 {
-	console.log('Starting G cycle...') ;
 	// Clear draw queue, re-randomize oragnic factor
 	_GDQ = [] ;
 	_GORG = randomInt(C_GORG_MIN, C_GORG_MAX) ;
 
-	console.log('GDQ length is '+_GDQ.length) ;
 	var rBase = randomInt(10,30) ;
 	var aOff = 2 * Math.PI / randomInt(1,7) ;
 
@@ -671,12 +659,10 @@ function doGCycle()
 	// Calculate cell coordinates
 	for(var i = 0; i < 3; i++)
 	{
-		console.log('Drawing FOL at index '+i) ;
 		calcFol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 	}
 
 	// One more iteration ... (i will already be incremented from for() loop)
-	console.log('Drawing SOL at index '+i) ;
 	calcSol(cx, cy, rBase * Math.pow(C_PHI,(i + 1)), (aOff + C_DA * (i + 1))) ;
 
 	// If direction is reversed (_gDir = 1), reverse array
@@ -812,7 +798,7 @@ function spawnBubble()
 
 	// Approximate ... 2PI/1000 is virtually zero ..
 	var a       = randomInt(0, (2 * Math.PI) * 100) / 100 ;
-	console.log('Spawn angle, r1, r2 '+a+', '+r1+', '+r2) ;
+	//console.log('Spawn angle, r1, r2 '+a+', '+r1+', '+r2) ;
 
 	// Calculate initial/final x,y position
 	//var xIni	= Math.floor(C_SCRWID / 2 + r1 * Math.cos(a)) ;
