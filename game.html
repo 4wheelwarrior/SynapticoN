@@ -1516,11 +1516,7 @@ function holeClick()
 	cy = randomInt(qb[2], qb[3]) ;
 
 	// Trigger a glass explosion with random rNom and particle count
-	spawnGlassExplosion(cx, cy, randomInt(100,200), randomInt(70,100)) ;
-
-	window.setTimeout(function(){
-		spawnGlassExplosion(cx, cy, randomInt(200,300), randomInt(20,60)) ;
-	},100) ;
+	spawnGlassExplosion(cx, cy, randomInt(200,300), randomInt(40,80)) ;
 
 	// Create and append bullet hole
 	var img = document.createElement('img') ;
