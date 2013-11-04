@@ -23,7 +23,14 @@
 <img 	id="bezel-br" 		src="img/bezel.png"					style="z-index: 5000" />
 -->
 
-<div 	id="revolver-cyl"						style="z-index: 3000"></div>
+<div id="red-matte" style="z-index: 4500"></div>
+
+<canvas id="spatter-paint" 		width="1024" 	height="768"	style="z-index: 4000"></canvas>
+<canvas id="cnv-glass" 			width="1024" 	height="768"	style="z-index: 3500"></canvas>
+
+<div 	id="revolver-cyl"						style="z-index: 3250"></div>
+<div 	id="blu-glo"						    style="z-index: 3000"></div>
+<div 	id="red-glo"						    style="z-index: 3000"></div>
 
 <div id="segment-container">
 	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px; z-index:" />
@@ -36,11 +43,7 @@
 	 and positions to make a unique 'spatter sprite',
 	 which is then plastered all over #spatter-paint in a fanout pattern -->
 
-<div id="red-matte" style="z-index: 3800"></div>
-
-<canvas id="spatter-paint" 		width="1024" 	height="768"	style="z-index: 3500"></canvas>
-<canvas id="cnv-glass" 			width="1024" 	height="768"	style="z-index: 3000"></canvas>
-
+<div 	id="rocker-sw"							style="z-index: 2750"></div>
 <div 	id="hardware"							style="z-index: 2500; pointer-events: none"></div>
 
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
@@ -48,9 +51,10 @@
 
 <div 	id="ray-container"						style="z-index: 550"></div>
 
-<canvas id="g-cnv" 				width="512"		height="384" 	style="z-index: 500"></canvas>
-<canvas id="g-cnv-bg" 			width="512"		height="384" 	style="z-index: 450"></canvas>
+<canvas id="g-cnv-0" 			width="512"		height="384" 	style="z-index: 500; opacity: 0"></canvas>
+<canvas id="g-cnv-1" 			width="512"		height="384" 	style="z-index: 500; opacity: 0"></canvas>
 
+<div 	id="crt-blank"											style="z-index: 425"></div>
 <canvas id="shard-sprite"		width="48" 		height="12"		style="display: none"></canvas>
 <canvas id="bubble-sprite"		width="420" 	height="60"		style="display: none"></canvas>
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
@@ -84,8 +88,10 @@
 <!--                                  -->
 <script>
 
-var C_TAPEVENT		= 'touchstart' ;
-var C_DISAUDIO		= false ;
+var C_TAPEVENT_DN	= 'touchstart' ;
+var C_TAPEVENT_UP	= 'touchend' ;
+
+var C_DISAUDIO		= true ;
 
 var C_SCRWID		= 1024 ;
 var C_SCRHGT		= 768 ;
@@ -226,8 +232,8 @@ var _ctxBS ;
 var _cnvGS ;					// Canvas/Context for G sprite
 var _ctxGS ;
 
-var _cnvG ;						// Canvas/Context for G background
-var _ctxG ;						
+var _cnvG = [] ;				// Canvas/Context for G background
+var _ctxG = [] ;				// indices correspond to #g-cnv-0 and #g-cnv-1
 
 var _elRC ; 					// "Ray" container for lightning effects
 
@@ -240,10 +246,10 @@ var _HIT 			= 0 ;
 var _MIS 			= 0 ;
 var _TOT 			= 0 ;
 
-var C_WCYL			= 130 ;		// Width/Height of revolver cylinder (pixels)
-var C_RCBR			= 34 ;		// Radius from center to chambers
-var C_WBUL			= 33 ;		// Width/Height of bullets (pixels)
-var C_CCNT			= 5 ;		// Chamber count (used to calculate angle increments)
+var C_WCYL			= 140 ;		// Width/Height of revolver cylinder (pixels)
+var C_RCBR			= 29 ;		// Radius from center to chambers
+var C_WBUL			= 40 ;		// Width/Height of bullets (pixels)
+var C_CCNT			= 3 ;		// Chamber count (used to calculate angle increments)
 var C_LDEL			= 750 ;		// Delay before displaying bullet (allow cyl to rotate)
 var _ICYL			= 0 ;		// Current rotation index of cylinder
 var _HMQ			= [] ;		// Hit/Miss queue
@@ -290,44 +296,56 @@ var _IGPR ; // glass particle registry
 
 var _elBody ;
 
+var _elBGlo ;
+var _elRGlo ;
+
+var _elRS ; // rocker switch
+
 function main()
 {
-	_cnvSS 	= document.getElementById('shard-sprite') ;
-	_ctxSS 	= _cnvSS.getContext('2d') ;
+	_cnvSS 		= document.getElementById('shard-sprite') ;
+	_ctxSS 		= _cnvSS.getContext('2d') ;
 
-	_cnvBS 	= document.getElementById('bubble-sprite') ;
-	_ctxBS 	= _cnvBS.getContext('2d') ;
+	_cnvBS 		= document.getElementById('bubble-sprite') ;
+	_ctxBS 		= _cnvBS.getContext('2d') ;
 
-	_cnvGS 	= document.getElementById('gcell-sprite') ;
-	_ctxGS 	= _cnvGS.getContext('2d') ;
+	_cnvGS 		= document.getElementById('gcell-sprite') ;
+	_ctxGS 		= _cnvGS.getContext('2d') ;
 
-	_cnvG 	= document.getElementById('g-cnv') ;
-	_ctxG 	= _cnvG.getContext('2d') ;
+	_cnvG[0] 	= document.getElementById('g-cnv-0') ;
+	_ctxG[0] 	= _cnvG[0].getContext('2d') ;
 
-	_cnvGB 	= document.getElementById('g-cnv-bg') ;
-	_ctxGB 	= _cnvGB.getContext('2d') ;
+	_cnvG[1] 	= document.getElementById('g-cnv-1') ;
+	_ctxG[1] 	= _cnvG[1].getContext('2d') ;
 
-	_elSC 	= document.getElementById('shard-container') ;
+	_elSC 		= document.getElementById('shard-container') ;
 
-	_elRC 	= document.getElementById('ray-container') ;
+	_elRC 		= document.getElementById('ray-container') ;
 
-	_elBC 	= document.getElementById('bubble-container') ;
-	_elBC.addEventListener(C_TAPEVENT, doClick, false) ;
+	_elBC 		= document.getElementById('bubble-container') ;
+	_elBC.addEventListener(C_TAPEVENT_DN, doClick, false) ;
 
-	_elCyl 	= document.getElementById('revolver-cyl') ;
+	_elCyl 		= document.getElementById('revolver-cyl') ;
 
-	_imgSP  = document.getElementById('spatter-prim') ;
-	_cnvSP 	= document.getElementById('spatter-paint') ;
-	_ctxSP 	= _cnvSP.getContext('2d') ;
+	_imgSP  	= document.getElementById('spatter-prim') ;
+	_cnvSP 		= document.getElementById('spatter-paint') ;
+	_ctxSP 		= _cnvSP.getContext('2d') ;
 
-	_elBody = document.getElementById('thebody') ;
+	_elBody 	= document.getElementById('thebody') ;
 
-	_imgGP = document.getElementById('glass-particle') ;
+	_imgGP 		= document.getElementById('glass-particle') ;
 
-	_cnvGL = document.getElementById('cnv-glass') ;
-	_ctxGL = _cnvGL.getContext('2d') ;
+	_cnvGL 		= document.getElementById('cnv-glass') ;
+	_ctxGL 		= _cnvGL.getContext('2d') ;
 
-	_AUDIO  = document.getElementById('snd-sprite') ;
+	_elBGlo 	= document.getElementById('blu-glo') ;
+	_elRGlo 	= document.getElementById('red-glo') ;
+
+	_elRS 		= document.getElementById('rocker-sw') ;
+	_elRS.addEventListener(C_TAPEVENT_DN,rsTDown,false) ;
+	_elRS.addEventListener(C_TAPEVENT_UP,rsTUp,false) ;
+
+	_AUDIO  	= document.getElementById('snd-sprite') ;
 
 	renderBubbleSprite() ;
 	renderGCellSprite() ;
@@ -336,6 +354,71 @@ function main()
 	initBullets() ;
 
 	initSegments() ;
+
+	initGCnv(0) ;
+	initGCnv(1) ;
+
+	//startup() ;
+}
+
+function initGCnv(i)
+{
+	// Paint background onto canvas
+	var img = document.getElementById('bg-'+_bgIdx);
+
+	_ctxG[i].drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+}
+
+var _PTIMEOUT ;
+function rsTDown(ev)
+{
+	// If pressing to left of switch, do nothing
+	if(ev.pageX < 80) return 0 ;
+
+	console.log('Got rsTDown at '+ev.pageX+', '+ev.pageY) ;
+	console.log(ev) ;
+	_PTIMEOUT = window.setTimeout('powerUp()',400) ;
+}
+
+function rsTUp(ev)
+{
+	console.log('Cancelled powerup, too soon') ;
+	window.clearTimeout(_PTIMEOUT) ;
+}
+
+function powerUp()
+{
+	_elRS.style.backgroundPosition = '0px 0px' ;
+	_elBGlo.style.opacity = 1 ;
+
+	for(var i = 0; i < 5; i++) setDigit(i,8) ;
+
+	window.setTimeout(function(){
+		_elCyl.style.webkitTransform = 'rotate(180deg)' ;
+	},500) ;
+
+	window.setTimeout(function(){
+		_elCyl.style.webkitTransform = 'rotate(-180deg)' ;
+	},1500) ;
+
+	window.setTimeout(function(){
+		_elCyl.style.webkitTransform = 'rotate(0deg)' ;
+	},2500) ;
+
+	window.setTimeout(function(){
+		setDigit(0,7) ;
+		setDigit(1,0) ;
+		setDigit(2,0) ;
+
+		setDigit(3, -1) ;
+		setDigit(4, 0) ;
+	},2000) ;
+
+	window.setTimeout(function(){
+		_cnvG[0].style.opacity = 1 ;
+	},3000) ;
+
+	return 0 ;
 
 	// Start the loop here too, because it'll sound sexy ...
 	// And audio needs to be triggered by a user event
@@ -1399,11 +1482,12 @@ function runDeathSequence()
 	window.clearInterval(_IGCY) ;
 	window.clearInterval(_ITMR) ;
 
-	_cnvG.style.display = 'none' ;
-	_cnvGB.style.display = 'none' ;
-	_elSC.style.display = 'none' ;
-	_cnvSP.style.display = 'block' ;
-	_cnvGL.style.display = 'block' ;
+	_cnvG[0].style.display 	= 'none' ;
+	_cnvG[1].style.display 	= 'none' ;
+	_elSC.style.display 	= 'none' ;
+	_cnvSP.style.display 	= 'block' ;
+	_cnvGL.style.display 	= 'block' ;
+	_elBC.style.display 	= 'none' ;
 
 	_IDRIP 	= window.setInterval('updateDREG()',200) ;
 	_IGPR 	= window.setInterval('updateGPREG()',100) ;
@@ -2019,12 +2103,12 @@ function randomInt(min, max)
 #revolver-cyl
 {
 	position: absolute ;
-	width: 130px ;
-	height: 130px ;
+	width: 140px ;
+	height: 140px ;
 	background: url('img/revolver-cyl.png') ;
 	/* left: 447px ; */
-	left: 450px ;
-	top: 595px ;
+	left: 445px ;
+	top: 590px ;
 
 	-webkit-transition-timing-function: ease-out ;
 	-webkit-transition: -webkit-transform 1s ;
@@ -2036,20 +2120,13 @@ function randomInt(min, max)
 	height: 768px ;
 }
 
-#g-cnv{
+#g-cnv-0, #g-cnv-1{
 	position: absolute ;
 	/* double native canvas size for fullscreen */
 	width: 1024px ;
 	height: 768px ;
 	-webkit-transition: opacity 5s ;
 	-webkit-transform: translateZ(0) ;
-}
-
-#g-cnv-bg{
-	position: absolute ;
-	/* double native canvas size for fullscreen */
-	width: 1024px ;
-	height: 768px ;
 }
 
 .bubble-canvas
@@ -2139,6 +2216,62 @@ img.disp-seg
 	display: none ;
 	opacity: 0.1 ;
 	-webkit-transition: opacity 10s ;
+}
+
+#blu-glo
+{
+	position: absolute ;
+	width: 136px ;
+	height: 136px ;
+	background: url('img/blu-glo.png') ;
+
+	left: 445px ;
+	top: 590px ;
+
+	display: block ;
+
+	opacity: 0.2 ;
+
+	-webkit-transition: opacity 5s ;
+}
+
+#red-glo
+{
+	position: absolute ;
+	width: 240px ;
+	height: 240px ;
+	background: url('img/red-glo.png') ;
+
+	left: 393px ;
+	top: 536px ;
+
+	display: none ;
+}
+
+#crt-blank
+{
+	position: absolute ;
+
+	background: url('img/crt-blank.jpg') ;
+	width: 999px ;
+	height: 655px ;
+
+	left: 14px ;
+	top: 18px ;
+}
+
+#rocker-sw
+{
+	position: absolute ;
+
+	background: url('img/rocker-sprite.png') ;
+
+	width: 99px ;
+	height: 72px ;
+	background-position: 0px 72px ; /* start in "off" position */
+
+	left: 34px ;
+	top: 659px ;
 }
 
 </style>
