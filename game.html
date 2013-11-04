@@ -51,8 +51,8 @@
 
 <div 	id="ray-container"						style="z-index: 550"></div>
 
-<canvas id="g-cnv-0" 			width="512"		height="384" 	style="z-index: 500; opacity: 0"></canvas>
-<canvas id="g-cnv-1" 			width="512"		height="384" 	style="z-index: 500; opacity: 0"></canvas>
+<canvas id="g-cnv" 				width="512"		height="384" 	style="z-index: 550; opacity: 0"></canvas>
+<canvas id="g-cnv-bg" 			width="512"		height="384" 	style="z-index: 500; opacity: 0"></canvas>
 
 <div 	id="crt-blank"											style="z-index: 425"></div>
 <canvas id="shard-sprite"		width="48" 		height="12"		style="display: none"></canvas>
@@ -91,7 +91,7 @@
 var C_TAPEVENT_DN	= 'touchstart' ;
 var C_TAPEVENT_UP	= 'touchend' ;
 
-var C_DISAUDIO		= true ;
+var C_DISAUDIO		= false ;
 
 var C_SCRWID		= 1024 ;
 var C_SCRHGT		= 768 ;
@@ -210,6 +210,8 @@ var _IDG ;
 // Interval for clock timer
 var _ITMR ;
 
+// Interval for shard reg update
+var _IUSR ;
 
 var C_SHDRAD		= 6 ;		// Shard sprite radius  (canvas coords)
 
@@ -232,8 +234,11 @@ var _ctxBS ;
 var _cnvGS ;					// Canvas/Context for G sprite
 var _ctxGS ;
 
-var _cnvG = [] ;				// Canvas/Context for G background
-var _ctxG = [] ;				// indices correspond to #g-cnv-0 and #g-cnv-1
+var _cnvG ;						// Canvas/Context for G foreground
+var _ctxG ;
+
+var _cnvGB ;					// Canvas/Context for G background
+var _ctxGB ;
 
 var _elRC ; 					// "Ray" container for lightning effects
 
@@ -312,11 +317,11 @@ function main()
 	_cnvGS 		= document.getElementById('gcell-sprite') ;
 	_ctxGS 		= _cnvGS.getContext('2d') ;
 
-	_cnvG[0] 	= document.getElementById('g-cnv-0') ;
-	_ctxG[0] 	= _cnvG[0].getContext('2d') ;
+	_cnvG 		= document.getElementById('g-cnv') ;
+	_ctxG 		= _cnvG.getContext('2d') ;
 
-	_cnvG[1] 	= document.getElementById('g-cnv-1') ;
-	_ctxG[1] 	= _cnvG[1].getContext('2d') ;
+	_cnvGB 		= document.getElementById('g-cnv-bg') ;
+	_ctxGB 		= _cnvGB.getContext('2d') ;
 
 	_elSC 		= document.getElementById('shard-container') ;
 
@@ -355,21 +360,30 @@ function main()
 
 	initSegments() ;
 
-	initGCnv(0) ;
-	initGCnv(1) ;
+	initGCnvBG() ;
+	initGCnvFG() ;
 
 	//startup() ;
 }
 
-function initGCnv(i)
+function initGCnvFG()
 {
 	// Paint background onto canvas
 	var img = document.getElementById('bg-'+_bgIdx);
 
-	_ctxG[i].drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+	_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
 }
 
-var _PTIMEOUT ;
+function initGCnvBG()
+{
+	// Paint background onto canvas
+	var img = document.getElementById('bg-'+_bgIdx);
+
+	_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
+}
+
+
+var _RTOUT ;
 function rsTDown(ev)
 {
 	ev.preventDefault() ;
@@ -377,17 +391,13 @@ function rsTDown(ev)
 	// If pressing to left of switch, do nothing
 	if(ev.pageX < 80) return 0 ;
 
-	console.log('Got rsTDown at '+ev.pageX+', '+ev.pageY) ;
-	console.log(ev) ;
-	_PTIMEOUT = window.setTimeout('powerUp()',400) ;
+	_RTOUT = window.setTimeout('powerUp()',200) ;
 }
 
 function rsTUp(ev)
 {
 	ev.preventDefault() ;
-	
-	console.log('Cancelled powerup, too soon') ;
-	window.clearTimeout(_PTIMEOUT) ;
+	window.clearTimeout(_RTOUT) ;
 }
 
 function powerUp()
@@ -419,29 +429,34 @@ function powerUp()
 	},2000) ;
 
 	window.setTimeout(function(){
-		_cnvG[0].style.opacity = 1 ;
+		_cnvG.style.opacity = 1 ;
 	},3000) ;
 
-	return 0 ;
+	window.setTimeout(function(){
+		_cnvGB.style.diplay = 'block' ;
+	},4000) ;
 
-	// Start the loop here too, because it'll sound sexy ...
-	// And audio needs to be triggered by a user event
-	// Because of some bullshit data plan babysitting routine :p
-	playAudio() ;
-	_AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
+	window.setTimeout(function(){
 
-	_ILPP = window.setInterval('doAudioLoop()',4000) ;
+		// Start the loop here too, because it'll sound sexy ...
+		// And audio needs to be triggered by a user event
+		// Because of some bullshit data plan babysitting routine :p
+		playAudio() ;
+		_AUD_TIMEOUT = window.setTimeout('pauseAudio()',2200) ; // Stop after 2.2s
 
-	doGCycle() ;
-	_IGCY = window.setInterval('doGCycle()',C_GCYC_INT) ;
+		_ILPP = window.setInterval('doAudioLoop()',4000) ;
 
-	// Fire up other tickers
-	window.setInterval('updateShardReg()', 200) ;
-	window.setInterval('shardRegGC()', 2000) ;
-	_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
-	window.setInterval('processHMQ()', 200) ;
+		doGCycle() ;
+		_IGCY = window.setInterval('doGCycle()',C_GCYC_INT) ;
 
-	_ITMR = window.setInterval('timeTick()',1000) ;
+		// Fire up other tickers
+		_IUSR = window.setInterval('updateShardReg()', 200) ;
+		window.setInterval('shardRegGC()', 2000) ;
+		_IBSP = window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+		window.setInterval('processHMQ()', 200) ;
+
+		_ITMR = window.setInterval('timeTick()',1000) ;
+	},5000) ;
 }
 
 function nextBG()
@@ -454,6 +469,9 @@ function nextBG()
 	}
     
     _bgIdx++ ;
+
+    // Re-initialize background canvas to new colour
+    initGCnvBG() ;
 }
 
 function halt()
@@ -628,14 +646,16 @@ function doGCycle()
 	var cx = C_GCNV_W / 2 ;
 	var cy = C_GCNV_H / 2 ;
 
-	clearGCanvas() ;
+	//clearGCanvas() ;
 
 	// Paint background onto canvas
-	var img = document.getElementById('bg-'+_bgIdx);
+	//var img = document.getElementById('bg-'+_bgIdx);
 
-	_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
-	_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+	//_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+	//_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
 
+	// Re-initialize foreground canvas to current colour
+	initGCnvFG() ;
 	_cnvG.style.opacity = 1.0 ;
 
 	// Calculate cell coordinates
@@ -1040,7 +1060,7 @@ function initBullets()
 	var el ;
 
 	// Distribute player-facing bullets, counterclockwise
-	for(var i = 0; i < 5; i++)
+	for(var i = 0; i < 3; i++)
 	{
 		el = document.createElement('img') ;
 		
@@ -1065,7 +1085,7 @@ function initBullets()
 	}
 
 	// Distribute game-facing bullets, clockwise
-	for(var i = 0; i > -5; i--)
+	for(var i = 0; i > -3; i--)
 	{
 		el = document.createElement('img') ;
 		
@@ -1097,15 +1117,15 @@ function addBullet(isGameFacing)
 	console.log('_ICYL = '+_ICYL) ;
 	// If cyl is currently loaded with player-facing bullets
 	// and we're loading a game-facing bullet, clear out cylinder
-	if(_ICYL < 5 && isGameFacing)
+	if(_ICYL < 3 && isGameFacing)
 	{
 		unloadCyl() ;
-		_ICYL = 5 ;
+		_ICYL = 3 ;
 	}
 
 	// If cyl is currently loaded with game-facing bullets
 	// and we're loading a player-facing bullet, clear out cylinder
-	if(_ICYL > 4 && !isGameFacing)
+	if(_ICYL > 3 && !isGameFacing)
 	{
 		unloadCyl() ;
 		_ICYL = 0 ;
@@ -1117,7 +1137,7 @@ function addBullet(isGameFacing)
 		_BULLETS[_ICYL].style.webkitTransform = 'rotate('+randomInt(0,360)+'deg)' ;
 
 	// If we just loaded the last player-facing bullet, trigger death sequence
-	if(_ICYL == 4)
+	if(_ICYL == 2)
 	{
 		runDeathSequence() ;
 		_ICYL = 0 ;
@@ -1125,7 +1145,7 @@ function addBullet(isGameFacing)
 	}
 
 	// If we just loaded the last game-facing bullet, trigger fireworks sequence
-	if(_ICYL == 9)
+	if(_ICYL == 5)
 	{
 		window.setTimeout(function(){doFireworks() ; unloadCyl() ;},200) ;
 		_ICYL = 0 ;
@@ -1485,13 +1505,21 @@ function runDeathSequence()
 	window.clearInterval(_IBSP) ;
 	window.clearInterval(_IGCY) ;
 	window.clearInterval(_ITMR) ;
+	window.clearInterval(_IUSR) ;
 
-	_cnvG[0].style.display 	= 'none' ;
-	_cnvG[1].style.display 	= 'none' ;
+	_cnvG.style.display 	= 'none' ;
+	_cnvGB.style.display 	= 'none' ;
 	_elSC.style.display 	= 'none' ;
 	_cnvSP.style.display 	= 'block' ;
 	_cnvGL.style.display 	= 'block' ;
 	_elBC.style.display 	= 'none' ;
+	_elSC.style.display     = 'none' ;
+
+	_elBGlo.style.display   = 'none' ;
+	_elRGlo.style.opacity   = 1 ;
+
+	// Turn off rocker switch
+	_elRS.style.backgroundPosition = 72 ;
 
 	_IDRIP 	= window.setInterval('updateDREG()',200) ;
 	_IGPR 	= window.setInterval('updateGPREG()',100) ;
@@ -1519,13 +1547,14 @@ function runDeathSequence()
 
 }
 
+// Counting number of shots ...
 var _iDeath = 0 ;
 function deathSeq()
 {
 	_iDeath++ ;
-	if(_iDeath > 5) return ;
-	holeClick() ;
-	window.setTimeout('deathSeq()',randomInt(400,600)) ;
+	if(_iDeath > 3) return ;
+	shootHole() ;
+	window.setTimeout('deathSeq()',randomInt(400,1000)) ;
 }
 
 var _GPREG = [] ; // glass particles [[cx, cy, r, a, w, h, rC], [], [] ... ]
@@ -1593,8 +1622,9 @@ function spawnGlassExplosion(cx, cy, rNom, p)
 	}
 }
 
-var _IQ = 0 ;
-function holeClick()
+// Start in random quadrant
+var _IQ = randomInt(0,3) ;
+function shootHole()
 {
 	var cx, cy ;
 	var x, y ;
@@ -1606,7 +1636,7 @@ function holeClick()
 	cy = randomInt(qb[2], qb[3]) ;
 
 	// Trigger a glass explosion with random rNom and particle count
-	spawnGlassExplosion(cx, cy, randomInt(200,300), randomInt(40,80)) ;
+	spawnGlassExplosion(cx, cy, randomInt(200,300), randomInt(50,100)) ;
 
 	// Create and append bullet hole
 	var img = document.createElement('img') ;
@@ -1617,6 +1647,7 @@ function holeClick()
 	img.style.webkitTransform = 'rotate(' + randomInt(0, 360) + 'deg)' ;
 
 	// Calculate top/left position of image from cx, cy and dimensions
+	console.log('Image dimensions: '+img.width+', '+img.height) ;
 	x = cx - Math.floor(img.width / 2) ;
 	y = cy - Math.floor(img.height / 2) ;
 
@@ -2124,13 +2155,21 @@ function randomInt(min, max)
 	height: 768px ;
 }
 
-#g-cnv-0, #g-cnv-1{
+#g-cnv{
 	position: absolute ;
 	/* double native canvas size for fullscreen */
 	width: 1024px ;
 	height: 768px ;
 	-webkit-transition: opacity 5s ;
 	-webkit-transform: translateZ(0) ;
+}
+
+#g-cnv-bg{
+	position: absolute ;
+	/* double native canvas size for fullscreen */
+	width: 1024px ;
+	height: 768px ;
+	display: none ;
 }
 
 .bubble-canvas
@@ -2190,7 +2229,7 @@ function randomInt(min, max)
 .bhole
 {
 	position: absolute ;
-	z-index: 3600 ;
+	z-index: 4300 ;
 }
 
 img.disp-seg
@@ -2249,7 +2288,7 @@ img.disp-seg
 	left: 393px ;
 	top: 536px ;
 
-	display: none ;
+	opacity: 0 ;
 }
 
 #crt-blank
