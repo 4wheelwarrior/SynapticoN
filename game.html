@@ -387,11 +387,7 @@ var _RTOUT ;
 function rsTDown(ev)
 {
 	ev.preventDefault() ;
-
-	// If pressing to left of switch, do nothing
-	if(ev.pageX < 80) return 0 ;
-
-	_RTOUT = window.setTimeout('powerUp()',200) ;
+	_RTOUT = window.setTimeout('powerUp()',250) ;
 }
 
 function rsTUp(ev)
@@ -1519,7 +1515,7 @@ function runDeathSequence()
 	_elRGlo.style.opacity   = 1 ;
 
 	// Turn off rocker switch
-	_elRS.style.backgroundPosition = 72 ;
+	_elRS.style.backgroundPosition = '0px 72px' ;
 
 	_IDRIP 	= window.setInterval('updateDREG()',200) ;
 	_IGPR 	= window.setInterval('updateGPREG()',100) ;
