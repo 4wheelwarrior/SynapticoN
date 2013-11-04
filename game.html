@@ -372,6 +372,8 @@ function initGCnv(i)
 var _PTIMEOUT ;
 function rsTDown(ev)
 {
+	ev.preventDefault() ;
+
 	// If pressing to left of switch, do nothing
 	if(ev.pageX < 80) return 0 ;
 
@@ -382,6 +384,8 @@ function rsTDown(ev)
 
 function rsTUp(ev)
 {
+	ev.preventDefault() ;
+	
 	console.log('Cancelled powerup, too soon') ;
 	window.clearTimeout(_PTIMEOUT) ;
 }
