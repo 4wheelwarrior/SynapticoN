@@ -65,18 +65,23 @@ function bodyClick(ev)
 
 function autoFire()
 {
-	doGFlashRadial() ;
-	window.setTimeout('doGFlashRadial()',300) ;
-	window.setTimeout('doGFlashRadial()',1100) ;
-	window.setTimeout('doGFlashRadial()',1200) ;
-	window.setTimeout('doGFlashRadial()',1300) ;
+	doGFlashRadial(randomInt(50,300),randomInt(50,140)) ;
+	window.setTimeout(function(){doGFlashRadial(randomInt(50,300),randomInt(50,140))},300) ;
+	//window.setTimeout('doGFlashRadial()',1100) ;
+	window.setTimeout(function(){doGFlashRadial(randomInt(50,300),randomInt(50,140))},800) ;
+	window.setTimeout(function(){doGFlashRadial(randomInt(50,300),randomInt(50,140))},1300) ;
 
-	window.setTimeout(function(){autoFireRec(10) ;},1500) ;
+	window.setTimeout(function(){autoFireRec(10) ;},1200) ;
 }
 
 function autoFireRec(rCount)
 {
-	if(rCount <= 0){doGFlashRadial(); return ;}
+	if(rCount <= 0){
+		doGFlashRadial(256,192);
+		window.setTimeout('doGFlashRadial(256,192)',300) ;
+		window.setTimeout('doGFlashRadial(256,192)',600) ;
+		return ;
+	}
 
 	doGFlash() ;
 
@@ -84,22 +89,24 @@ function autoFireRec(rCount)
 	rCount-- ;
 }
 
-function doGFlashRadial()
+var C_GFRAD_PCOUNT = 20 ;
+function doGFlashRadial(cx, cy)
 {
+	console.log('do GF radial with cx.cy '+cx+'.'+cy) ;
 	var r, w, a, dr, dw ;
 
 	r = 600 ;
 	w = randomInt(40,80) ;
 
 	// Spawn some particles
-	for(var i = 0; i < 10; i++)
+	for(var i = 0; i < C_GFRAD_PCOUNT; i++)
 	{
-		a = i * (2 * Math.PI) / 10 ;
+		a = i * (2 * Math.PI) / C_GFRAD_PCOUNT ;
 
-		dr = 20 ;
+		dr = 30 ;
 		dw = 8 ;
 
-		_GFREG.push([r,w,a,dr,dw,0]) ;
+		_GFREG.push([cx,cy,r,w,a,dr,dw,0]) ;
 	}
 }
 
@@ -116,10 +123,10 @@ function doGFlash()
 		a = randomInt(0,2 * Math.PI * 100) / 100 ;
 		//a = i * (2 * Math.PI) / 5 ;
 
-		dr = randomInt(20,35) ;
+		dr = randomInt(30,55) ;
 		dw = randomInt(5,8) ;
 
-		_GFREG.push([r,w,a,dr,dw,0]) ;
+		_GFREG.push([256,192,r,w,a,dr,dw,0]) ;
 	}
 }
 
@@ -127,8 +134,9 @@ function updateGFReg()
 {
 	if(!_GFREG.length) return ;
 
-	var cx, cy ;
-	var x, y ;
+	var cxo, cyo ; // center x/y of origin
+	var cx, cy ; // center x/y of current position
+	var x, y ; // top left x,y where we actually draw
 
 	var r,w,a,dr,dw,rCur ;
 
@@ -137,13 +145,16 @@ function updateGFReg()
 
 	for(var i = 0; i < _GFREG.length; i++)
 	{	
-		r 		= _GFREG[i][0] ;
-		w 		= _GFREG[i][1] ;
-		a 		= _GFREG[i][2] ;
-		dr 		= _GFREG[i][3] ;
-		dw 		= _GFREG[i][4] ;
-		rCur 	= _GFREG[i][5] ;
+		cxo 	= _GFREG[i][0] ;
+		cyo 	= _GFREG[i][1] ;
+		r 		= _GFREG[i][2] ;
+		w 		= _GFREG[i][3] ;
+		a 		= _GFREG[i][4] ;
+		dr 		= _GFREG[i][5] ;
+		dw 		= _GFREG[i][6] ;
+		rCur 	= _GFREG[i][7] ;
 
+		console.log('cxo,cyo '+cxo+', '+cyo) ;
 		// If nominal radius is reached, remove entry from array, skip drawing
 		if(rCur >= r)
 		{
@@ -156,8 +167,8 @@ function updateGFReg()
 		w += dw ;
 
 		// GFlash effects always go from center of canvas...
-		cx = 256 + rCur * Math.cos(a) ;
-		cy = 192 + rCur * Math.sin(a) ;
+		cx = Math.floor(cxo + rCur * Math.cos(a)) ;
+		cy = Math.floor(cyo + rCur * Math.sin(a)) ;
 
 		x = cx - w / 2 ;
 		y = cy - w / 2 ;
@@ -166,8 +177,8 @@ function updateGFReg()
 		_ctxGF.drawImage(_imgGF,0,0,100,100,x,y,w,w) ;
 
 		// Save new values back to registry
-		_GFREG[i][5] = rCur ;
-		_GFREG[i][1] = w ;
+		_GFREG[i][7] = rCur ;
+		_GFREG[i][3] = w ;
 	}
 }
 
@@ -325,6 +336,7 @@ function drawGCell(cx, cy, rNom)
     var wCopy = C_GSPR_R * 2 ;
 
     _ctxG.drawImage(_cnvGS, 0, 0, wCopy, wCopy, x, y, r * 2, r * 2) ;
+    _ctxGB.drawImage(_cnvGS, 0, 0, wCopy, wCopy, x, y, r * 2, r * 2) ;
 }
 
 function fillGCnv()
