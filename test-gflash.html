@@ -21,7 +21,7 @@ var _RBASE = 60 ;
 
 // Radius/Opacity of GCell sprite
 var C_GSPR_R = 120 ;
-var C_GSPR_O = 0.30 ;
+var C_GSPR_O = 0.20 ;
 
 function main()
 {
@@ -59,19 +59,30 @@ function main()
 function bodyClick(ev)
 {
 	autoFire() ;
-	//if(ev.pageX < 500) doGFlashRadial() ;
+	if(ev.pageX < 100) window.location.href = 'test-gflash.html' ;
 	//else doGFlash() ;
 }
 
+var _IDGR ;
 function autoFire()
 {
+	_IDGR = window.setInterval('drawGRandom()',200) ;
 	doGFlashRadial(randomInt(50,300),randomInt(50,140)) ;
 	window.setTimeout(function(){doGFlashRadial(randomInt(50,300),randomInt(50,140))},300) ;
 	//window.setTimeout('doGFlashRadial()',1100) ;
 	window.setTimeout(function(){doGFlashRadial(randomInt(50,300),randomInt(50,140))},800) ;
 	window.setTimeout(function(){doGFlashRadial(randomInt(50,300),randomInt(50,140))},1300) ;
+	window.setTimeout(function(){window.clearInterval(_IDGR); drawGRandom(); autoFireRec(10) ;},1000) ;
+}
 
-	window.setTimeout(function(){autoFireRec(10) ;},1000) ;
+function drawGRandom()
+{
+	var idx ;
+	for(var i = 0; i < 5; i++)
+	{
+		idx = randomInt(0,_GDQ.length - 1) ;
+		drawGCell(_GDQ[idx][0],_GDQ[idx][1],_GDQ[idx][2]) ;
+	}
 }
 
 function autoFireRec(rCount)
@@ -110,7 +121,6 @@ function drawBurnOut(r)
 var C_GFRAD_PCOUNT = 20 ;
 function doGFlashRadial(cx, cy)
 {
-	console.log('do GF radial with cx.cy '+cx+'.'+cy) ;
 	var r, w, a, dr, dw ;
 
 	r = 600 ;
@@ -172,7 +182,6 @@ function updateGFReg()
 		dw 		= _GFREG[i][6] ;
 		rCur 	= _GFREG[i][7] ;
 
-		console.log('cxo,cyo '+cxo+', '+cyo) ;
 		// If nominal radius is reached, remove entry from array, skip drawing
 		if(rCur >= r)
 		{
