@@ -40,7 +40,7 @@ function main()
 	fillGCnv() ;
 	drawGMask() ;
 
-	document.getElementById('thebody').addEventListener('touchstart',bodyClick,true) ;
+	document.getElementById('thebody').addEventListener('mousedown',bodyClick,true) ;
 	window.setInterval('updateGFReg()',100) ;
 	//renderGCellSpriteT() ;
 	//drawMask() ;
@@ -48,8 +48,30 @@ function main()
 
 function bodyClick(ev)
 {
-	if(ev.pageX < 500) doGFlashRadial() ;
-	else doGFlash() ;
+	autoFire() ;
+	//if(ev.pageX < 500) doGFlashRadial() ;
+	//else doGFlash() ;
+}
+
+function autoFire()
+{
+	doGFlashRadial() ;
+	window.setTimeout('doGFlashRadial()',300) ;
+	window.setTimeout('doGFlashRadial()',1100) ;
+	window.setTimeout('doGFlashRadial()',1200) ;
+	window.setTimeout('doGFlashRadial()',1300) ;
+
+	window.setTimeout(function(){autoFireRec(10) ;},1500) ;
+}
+
+function autoFireRec(rCount)
+{
+	if(rCount <= 0){doGFlashRadial(); return ;}
+
+	doGFlash() ;
+
+	window.setTimeout(function(){autoFireRec(rCount)},randomInt(50,300)) ;
+	rCount-- ;
 }
 
 function doGFlashRadial()
@@ -57,7 +79,7 @@ function doGFlashRadial()
 	var r, w, a, dr, dw ;
 
 	r = 600 ;
-	w = 60 ;
+	w = randomInt(40,80) ;
 
 	// Spawn some particles
 	for(var i = 0; i < 10; i++)
@@ -76,7 +98,7 @@ function doGFlash()
 	var r, w, a, dr, dw ;
 
 	// Spawn some particles
-	for(var i = 0; i < 10; i++)
+	for(var i = 0; i < 3; i++)
 	{
 		r = randomInt(400,600) ;
 		w = randomInt(20,40) ;
@@ -127,8 +149,8 @@ function updateGFReg()
 		cx = 256 + rCur * Math.cos(a) ;
 		cy = 192 + rCur * Math.sin(a) ;
 
-		x = cx - w ;
-		y = cy - w ;
+		x = cx - w / 2 ;
+		y = cy - w / 2 ;
 
 		// Paint dat shit
 		_ctxGF.drawImage(_imgGF,0,0,100,100,x,y,w,w) ;
@@ -142,10 +164,13 @@ function updateGFReg()
 function drawGMask()
 {
 	var imgData = _ctxG.getImageData(0,0,512,384) ;
+	var idx ;
 
-	for(var i = 0; i < _GDQ.length; i++)
+	for(var i = 0; i < 70; i++)
 	{
-		cutArc(imgData, _GDQ[i][0], _GDQ[i][1], _GDQ[i][2], 3) ;
+		idx = randomInt(0,_GDQ.length - 1) ;
+
+		cutArc(imgData, _GDQ[idx][0], _GDQ[idx][1], _GDQ[idx][2], 3) ;
 	}
 
 	_ctxG.putImageData(imgData,0,0,512,384) ;
@@ -161,6 +186,8 @@ function cutArc(imgData,cx,cy,r,w)
 
 	for(var j = 0; j < w; j++)
 	{
+		C_CUTSTEPS = randomInt(40,90) ;
+
 		for(var i = 0; i < C_CUTSTEPS; i++)
 		{
 			a = i * da ;
@@ -170,6 +197,18 @@ function cutArc(imgData,cx,cy,r,w)
 
 			x = Math.round(x) ;
 			y = Math.round(y) ;
+
+			setPixel(imgData, x, y, 255, 255, 255, 0) ;
+
+			x++ ;
+
+			setPixel(imgData, x, y, 255, 255, 255, 0) ;
+
+			y++ ;
+
+			setPixel(imgData, x, y, 255, 255, 255, 0) ;
+
+			x-- ;
 
 			setPixel(imgData, x, y, 255, 255, 255, 0) ;
 		}
