@@ -1,0 +1,267 @@
+<html>
+<head>
+
+<script>
+
+var C_GSPR_R 		= 120 ;
+
+var _cnvG, _ctxG ;
+var _cnvGB, _ctxGB ;
+
+var _elBGI ;
+
+var _GDQ = [] ;
+var _GFREG = [] ;
+
+var C_GSEGS = 6 ;
+var C_PHI = ( 1 + Math.sqrt(5) ) / 2 ;
+var C_DA = 2.39982772 ;
+var _RBASE = 60 ;
+
+function main()
+{
+	_cnvG = document.getElementById('g-cnv') ;
+	_ctxG = _cnvG.getContext('2d') ;
+
+	_cnvGB = document.getElementById('g-cnv-bg') ;
+	_ctxGB = _cnvGB.getContext('2d') ;
+
+	_cnvGF = document.getElementById('g-flash-cnv') ;
+	_ctxGF = _cnvGF.getContext('2d') ;
+
+	_imgGF = document.getElementById('gflash-prim') ;
+
+	_elBGI = document.getElementById('bg-red') ;
+
+	calcFol(256,192,_RBASE,0) ;
+	calcFol(256,192,_RBASE * C_PHI,C_DA) ;
+	calcFol(256,192,_RBASE * C_PHI * C_PHI, 2 * C_DA) ;
+
+	fillGCnv() ;
+	drawGMask() ;
+
+	document.getElementById('thebody').addEventListener('touchstart',bodyClick,true) ;
+	window.setInterval('updateGFReg()',100) ;
+	//renderGCellSpriteT() ;
+	//drawMask() ;
+}
+
+function bodyClick(ev)
+{
+	if(ev.pageX < 500) doGFlashRadial() ;
+	else doGFlash() ;
+}
+
+function doGFlashRadial()
+{
+	var r, w, a, dr, dw ;
+
+	r = 600 ;
+	w = 60 ;
+
+	// Spawn some particles
+	for(var i = 0; i < 10; i++)
+	{
+		a = i * (2 * Math.PI) / 10 ;
+
+		dr = 20 ;
+		dw = 8 ;
+
+		_GFREG.push([r,w,a,dr,dw,0]) ;
+	}
+}
+
+function doGFlash()
+{
+	var r, w, a, dr, dw ;
+
+	// Spawn some particles
+	for(var i = 0; i < 10; i++)
+	{
+		r = randomInt(400,600) ;
+		w = randomInt(20,40) ;
+
+		a = randomInt(0,2 * Math.PI * 100) / 100 ;
+		//a = i * (2 * Math.PI) / 5 ;
+
+		dr = randomInt(20,35) ;
+		dw = randomInt(5,8) ;
+
+		_GFREG.push([r,w,a,dr,dw,0]) ;
+	}
+}
+
+function updateGFReg()
+{
+	if(!_GFREG.length) return ;
+
+	var cx, cy ;
+	var x, y ;
+
+	var r,w,a,dr,dw,rCur ;
+
+	// Clear dat shit
+	_ctxGF.clearRect(0,0,512,384) ;
+
+	for(var i = 0; i < _GFREG.length; i++)
+	{	
+		r 		= _GFREG[i][0] ;
+		w 		= _GFREG[i][1] ;
+		a 		= _GFREG[i][2] ;
+		dr 		= _GFREG[i][3] ;
+		dw 		= _GFREG[i][4] ;
+		rCur 	= _GFREG[i][5] ;
+
+		// If nominal radius is reached, remove entry from array, skip drawing
+		if(rCur >= r)
+		{
+			_GFREG.splice(i,1) ;
+			continue ;
+		}
+
+		// Otherwise, increment and draw as usual ...
+		rCur += dr ;
+		w += dw ;
+
+		// GFlash effects always go from center of canvas...
+		cx = 256 + rCur * Math.cos(a) ;
+		cy = 192 + rCur * Math.sin(a) ;
+
+		x = cx - w ;
+		y = cy - w ;
+
+		// Paint dat shit
+		_ctxGF.drawImage(_imgGF,0,0,100,100,x,y,w,w) ;
+
+		// Save new values back to registry
+		_GFREG[i][5] = rCur ;
+		_GFREG[i][1] = w ;
+	}
+}
+
+function drawGMask()
+{
+	var imgData = _ctxG.getImageData(0,0,512,384) ;
+
+	for(var i = 0; i < _GDQ.length; i++)
+	{
+		cutArc(imgData, _GDQ[i][0], _GDQ[i][1], _GDQ[i][2], 3) ;
+	}
+
+	_ctxG.putImageData(imgData,0,0,512,384) ;
+}
+
+var C_CUTSTEPS = 90 ;
+function cutArc(imgData,cx,cy,r,w)
+{
+	var da = 2 * Math.PI / C_CUTSTEPS ;
+
+	var x, y ;
+	var a ;
+
+	for(var j = 0; j < w; j++)
+	{
+		for(var i = 0; i < C_CUTSTEPS; i++)
+		{
+			a = i * da ;
+
+			x = cx + r * Math.cos(a) ;
+			y = cy + r * Math.sin(a) ;
+
+			x = Math.round(x) ;
+			y = Math.round(y) ;
+
+			setPixel(imgData, x, y, 255, 255, 255, 0) ;
+		}
+
+		r-- ;
+	}
+}
+
+function calcFol(cx, cy, r, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    calcSol(cx, cy, r, ao) ;
+
+    for(var i = 0; i < C_GSEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_GSEGS) ;
+
+        x = Math.round(cx + 2 * r * Math.cos(a)) ;
+        y = Math.round(cy + 2 * r * Math.sin(a)) ;
+
+        calcSol(x, y, r, a) ;
+    }
+}
+
+function calcSol(cx, cy, rNom, ao){
+    var a ;
+    var x ;
+    var y ;
+
+    // Round off radius before pushing into draw queue
+    _GDQ.push([cx, cy, Math.round(rNom)]) ;
+
+    for(var i = 0; i < C_GSEGS; i++){
+        a = ao + (i + 1) * (2 * Math.PI / C_GSEGS) ;
+        x = Math.round(cx + rNom * Math.cos(a)) ;
+        y = Math.round(cy + rNom * Math.sin(a)) ;
+        _GDQ.push([x, y, Math.round(rNom)]) ;
+    }
+}
+
+function fillGCnv()
+{
+	_ctxG.drawImage(_elBGI,0,0,256,192,0,0,512,384) ;
+	_ctxGB.drawImage(_elBGI,0,0,256,192,0,0,512,384) ;
+}
+
+function setPixel(imageData, x, y, r, g, b, a)
+{
+    index = (x + y * imageData.width) * 4;
+    imageData.data[index+0] = r;
+    imageData.data[index+1] = g;
+    imageData.data[index+2] = b;
+    imageData.data[index+3] = a;
+}
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+</script>
+<style>
+
+#thebody
+{
+	background: black ;
+}
+
+#g-cnv, #g-cnv-bg, #g-flash-cnv
+{
+	position: absolute ;
+}
+
+#gcell-sprite-t
+{
+	position: absolute ;
+	z-index: 100 ;
+	border: 3px solid black ;
+	left: 400px ;
+}
+</style>
+</head>
+
+<body id="thebody">
+
+	<canvas id="g-cnv" 		width="512" 		height="384" 		style="z-index: 300"></canvas>
+	<canvas id="g-flash-cnv" width="512"		height="384"		style="z-index: 250"></canvas>
+	<canvas id="g-cnv-bg" 	width="512" 		height="384" 		style="z-index: 200"></canvas>
+
+	<img 	id="bg-red" 		src="img/bg-red.jpg" 			style="display:none" />
+	<img 	id="gflash-prim" 	src="img/gflash-prim.png" 		style="display:none" />
+
+	<script>window.setTimeout('main()',200)</script>
+</body>
+</html>
