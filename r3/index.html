@@ -1,0 +1,325 @@
+<html>
+<head>
+
+<style>
+
+	body{
+		background: black ;
+	}
+
+	#cnv-o, #cnv-g{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+	}
+
+	#cnv-o{
+		border: 3px solid red ;
+	}
+
+	#hidden{
+		/* display: none ; */
+	}
+
+	#cnv-s{
+		border: 2px solid yellow ;
+	}
+
+</style>
+<script src="poly.js"></script>
+</head>
+<body>
+
+<canvas id="cnv-o" width="512" height="384" style="z-index: 100"></canvas>
+<canvas id="cnv-g" width="512" height="384" style="z-index: 50"></canvas>
+
+<div id="hidden">
+	<img id="p-smoke" src="p-smoke.png" />
+	<img id="p-glass" src="p-glass.png" />
+
+	<!-- s = shard, t = target, c = geometry (c)ell -->
+	<canvas id="cnv-s" 	width="48" 		height="12"></canvas>
+	<canvas id="cnv-t" 	width="420" 	height="60"></canvas>
+	<canvas id="cnv-c" 	width="240" 	height="240"></canvas>
+</div>
+
+<script>
+// Overlay canvas/context
+var _CNO, _CXO ;
+
+// Geometry canvas/context
+var _CNG, _CXG ;
+
+// Shard sprite
+var _CNS, _CXS ;
+
+// G Cell sprite
+var _CNC, _CXC ;
+
+// Target sprite
+var _CNT, _CXT ;
+
+// Smoke particle <img>
+var _IMS ;
+
+// Glass particle <img>
+var _IMG ;
+
+// PD: Particle definitions
+// [cnvSprite, x, y, w, h], [], []
+// 0 - 3: 	3,4,5,6 vertex shard particles
+// 4: 		smoke particle
+// 5: 		glass particle
+
+var PD = [] ;
+
+// _T: Target registry
+// Stores references to entries in _P representing targets
+// Targets are animated by particle engine. This is for hit detection.
+// Every time a round detonates, scan this array for hits.
+var _T = [] ;
+
+// _P: Particle registry
+// [[x, y, a, da, s, ds, r, rMax, dr, ddr, id], [...], [...] ]
+var _P = [] ;
+
+// x,y				| 0,1: origin of emitter
+// a, da			| 2,3: trajectory angle & rate of accel.
+// s 				| 4: current/initial size (incremented thru animation)
+// ds 				| 5: change in size (per tick)
+// r 				| 6: radius from center (incremented thru animation)
+// rMax 			| 7: terminal radius
+// dr 				| 8: velocity along radius
+// ddr				| 9: acceleration along radius
+// id 				| 10: type of particle (index in PD array)
+
+
+// _B: Blood spatter registry
+var _B = [] ;
+
+// renderOverlay() interval
+var _IRO ;
+
+function main()
+{
+	_CNO = document.getElementById('cnv-o') ;
+	_CXO = _CNO.getContext('2d') ;
+
+	_CNG = document.getElementById('cnv-g') ;
+	_CXG = _CNG.getContext('2d') ;
+
+	_CNS = document.getElementById('cnv-s') ;
+	_CXS = _CNS.getContext('2d') ;
+
+	//_CNC = document.getElementById('cnv-c') ;
+	//_CXC = _CNC.getContext('2d') ;
+
+	_CNT = document.getElementById('cnv-t') ;
+	_CXT = _CNT.getContext('2d') ;
+
+	_IMS = document.getElementById('p-smoke') ;
+	_IMG = document.getElementById('p-glass') ;
+
+	// Initialize particle definitions
+	PD = [
+		[_CNS, 0, 0, 9, 12],
+		[_CNS, 9, 0, 12, 12],
+		[_CNS, 21, 0, 12, 12],
+		[_CNS, 33, 0, 12, 12],
+
+		[_IMS, 0, 0, 12, 12],
+		[_IMG, 0, 0, 24, 24],
+
+		[_CNT, 0, 0, 45, 60],
+		[_CNT, 46, 0, 60, 60],
+		[_CNT, 106, 0, 60, 60],
+		[_CNT, 165, 0, 60, 60],
+		[_CNT, 226, 0, 59, 60],
+		[_CNT, 285, 0, 60, 60],
+		[_CNT, 345, 0, 60, 60]
+	] ;
+
+	//var TS_IDX = [0, 46, 106, 165, 226, 286, 345, 404] ;
+
+	renderShardSprite() ;
+	renderTargetSprite() ;
+	powerUp() ;
+
+	//window.setTimeout('powerDn()',10000) ;
+}
+
+function powerUp()
+{
+	_IRO = window.setInterval('renderOverlay()', 100) ;
+
+	_CNO.addEventListener('click', oClick, false) ;
+}
+
+function powerDn()
+{
+	window.clearInterval(_IRO) ;
+}
+
+function oClick(ev)
+{
+	var x = Math.floor(ev.pageX / 2) ;
+	var y = Math.floor(ev.pageY / 2) ;
+	
+	if(ev.pageX < 50) spawnTarget() ;
+	else spawnShardSystem(x, y, 100, 8) ;
+}
+
+var SHDRAD = 6 ;
+function renderShardSprite()
+{
+	// Centerline of shard being drawn
+	// Starts at half of shard width
+	var cX = SHDRAD / 2 ;
+	var cY = SHDRAD ;
+
+	// Render polygons
+	for(var vCount = 3; vCount <= 6; vCount++)
+	{
+		drawPoly(_CXS, cX, cY, SHDRAD, vCount, 0) ;
+		cX += 2 * SHDRAD ;
+	}
+}
+
+var TGTRAD = 30 ;
+function renderTargetSprite()
+{
+	// Centerline of bubble being drawn
+	// Starts at half of bubble width
+	var cX = TGTRAD / 2 ;
+	var cY = TGTRAD ;
+
+	// Render polygon bubbles
+	for(var vCount = 3; vCount <= 8; vCount++)
+	{
+		drawRoundedPoly(_CXT, cX, cY, TGTRAD, 5, vCount, 0) ;
+		cX += 2 * TGTRAD ;
+	}
+
+	// And now, a circular bubble... fake it for now :)
+	drawCirclePoly(_CXT, cX, cY, TGTRAD, 5, 16, 0) ;
+}
+
+
+/***************************************************
+*
+*					 Particle System Factories
+*
+****************************************************/
+
+
+function spawnShardSystem(cx, cy, rNom, p)
+{
+	var shTmp ;
+	var aNom ;
+	var r, a ;
+
+	for(var i = 0; i < p; i++)
+	{
+		// [0, 1, 2, 3,  4, 5, 	6, 7,    8,  9,   10]
+		// [x, y, a, da, s, ds, r, rMax, dr, ddr, id]
+		shTmp = [cx, cy] ;
+
+		aNom = (( 2 * Math.PI ) / p) * i ;
+		
+		// Apply +/- percentage according to organic factors
+		a = aNom * ( randomInt(70, 130) / 100 ) ;
+		r = rNom * ( randomInt(70, 130) / 100 ) ;
+
+		shTmp[2] = a ;
+		shTmp[3] = 2 * Math.PI / 30 ;
+		shTmp[4] = randomInt(6,12) ;
+		shTmp[5] = 0 ;
+		shTmp[6] = 5 ;
+		shTmp[7] = Math.floor(r) ;
+		shTmp[8] = 30 ;
+		shTmp[9] = -2 ;
+		shTmp[10] = 0 ;
+		
+		_P.push(shTmp) ;
+	}
+}
+
+function spawnTarget()
+{
+	var cx 	= 256 ;
+	var cy 	= 192 ;
+
+	var r 	= randomInt(80,160) ;
+	var a 	= randomInt(0, 200 * Math.PI) / 100 ;
+
+	// [0, 1, 2, 3,  4, 5, 	6, 7,    8,  9,   10]
+	// [x, y, a, da, s, ds, r, rMax, dr, ddr, id]
+	var pTmp = [cx, cy, a] ;
+
+	pTmp[3] = 0 ;
+	pTmp[4] = 20 ;
+	pTmp[5] = 1 ;
+	pTmp[6] = 10 ;
+	pTmp[7] = 150 ;
+	pTmp[8] = 2 ;
+	pTmp[9] = 0 ;
+	pTmp[10] = randomInt(6,12) ;
+
+	_P.push(pTmp) ;
+}
+
+function renderOverlay()
+{
+	// current entry in particle registry
+	var p ;
+	var d ;
+
+	var x, y ;
+
+	_CXO.clearRect(0, 0, 512, 384) ;
+
+	// Render targets
+
+	// Render particles
+	for(var i = 0; i < _P.length; i++)
+	{
+		p = _P[i] ;
+
+		// Select particle definition
+		if(p[10] == 0) d = PD[ randomInt(0,3) ]
+		else d = PD[ p[10] ] ;
+
+		// If terminal radius is reached, kill particle
+		if( p[6] >= p[7] ){ _P.splice(i,1) ; continue ;}
+
+		// Another possible case: dr turns -ve
+		if( p[8] <= 0 ){ _P.splice(i,1) ; continue ;}
+
+		x = p[0] + p[6] * Math.cos( p[2] ) ;
+		y = p[1] + p[6] * Math.sin( p[2] ) ;
+
+		x = Math.floor( x - p[4] / 2 ) ;
+		y = Math.floor( y - p[4] / 2 ) ;
+
+		// Copy pixels from particle sprite
+		_CXO.drawImage( d[0], d[1], d[2], d[3], d[4], x, y, p[4], p[4] ) ;
+
+
+		p[2] += p[3] ;		// a += da
+		p[8] += p[9] ;		// dr += ddr
+		p[6] += p[8] ;		// r += dr
+		p[4] += p[5] ;		// s += ds
+	}
+
+	// Render tracers
+}
+
+function randomInt(min, max)
+{
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+window.setTimeout('main()',200) ;
+</script>
+</body>
+</html>
