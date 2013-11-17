@@ -18,7 +18,7 @@
 	}
 
 	#hidden{
-		/* display: none ; */
+		display: none ;
 	}
 
 	#cnv-s{
@@ -99,6 +99,7 @@ var _B = [] ;
 
 // renderOverlay() interval
 var _IRO ;
+var _IST ;
 
 function main()
 {
@@ -151,6 +152,7 @@ function main()
 function powerUp()
 {
 	_IRO = window.setInterval('renderOverlay()', 100) ;
+	_IST = window.setInterval('spawnTarget()',1000) ;
 
 	_CNO.addEventListener('touchstart', oClick, false) ;
 }
@@ -164,9 +166,11 @@ function oClick(ev)
 {
 	var x = Math.floor(ev.pageX / 2) ;
 	var y = Math.floor(ev.pageY / 2) ;
+
+	spawnMissile(x, y) ;
 	
-	if(ev.pageX < 50) spawnTarget() ;
-	else spawnShardSystem(x, y, 100, 8) ;
+	//if(ev.pageX < 50) spawnTarget() ;
+	//else spawnShardSystem(x, y, 100, 8) ;
 }
 
 var SHDRAD = 6 ;
@@ -214,6 +218,7 @@ function renderTargetSprite()
 
 function spawnShardSystem(cx, cy, rNom, p)
 {
+	console.log('spawnShardSystem called '+cx+', '+cy) ;
 	var shTmp ;
 	var aNom ;
 	var r, a ;
@@ -246,6 +251,8 @@ function spawnShardSystem(cx, cy, rNom, p)
 
 function spawnTarget()
 {
+	if(randomInt(0,100) < 75) return ;
+
 	var cx 	= 256 ;
 	var cy 	= 192 ;
 
@@ -268,6 +275,66 @@ function spawnTarget()
 	_P.push(pTmp) ;
 }
 
+
+// Spawns a missile targetted at x, y
+function spawnMissile(xf, yf)
+{
+	var xi = 256 ;
+	var yi = 380 ;
+
+	// Work back to find radius and angle
+	var r = Math.pow((xf - xi), 2) + Math.pow((yf - yi), 2) ;
+	r = Math.sqrt(r) ;
+	r = Math.floor(r) ;
+
+	// r * sin(a) = dy
+	// sin(a) = dy / r
+	// a = asin(dy / r)
+	var a = Math.asin( (yf - yi) / r ) ;
+	if(xf < 256) a = Math.PI - a ;
+
+	// [0, 1, 2, 3,  4, 5, 	6, 7,    8,  9,   10]
+	// [x, y, a, da, s, ds, r, rMax, dr, ddr, id]
+	var pTmp = [xi, yi, a] ;
+
+	pTmp[3] = 0 ;
+	pTmp[4] = 15 ;
+	pTmp[5] = 0 ;
+	pTmp[6] = 0 ;
+	pTmp[7] = r ;
+	pTmp[8] = 25 ;
+	pTmp[9] = 0 ;
+	pTmp[10] = 1 ;
+	pTmp[11] = terminateMissile ;
+
+	_P.push(pTmp) ;
+
+	pTmp = pTmp.slice(0) ;
+	pTmp[11] = null ;
+
+	//window.setTimeout(function(){_P.push(pTmp),50}) ;
+	//window.setTimeout(function(){_P.push(pTmp),150}) ;
+	//window.setTimeout(function(){_P.push(pTmp),200}) ;
+}
+
+function terminateMissile(p)
+{
+	console.log('terminateMissile called') ;
+	var x = p[0] + p[7] * Math.cos(p[2]) ;
+	var y = p[1] + p[7] * Math.sin(p[2]) ;
+
+	x = Math.floor(x) ;
+	y = Math.floor(y) ;
+
+	spawnShardSystem(x, y, 100, 8) ;
+}
+
+/***************************************************
+*
+*					 Main Render Loop
+*
+****************************************************/
+
 function renderOverlay()
 {
 	// current entry in particle registry
@@ -289,8 +356,13 @@ function renderOverlay()
 		if(p[10] == 0) d = PD[ randomInt(0,3) ]
 		else d = PD[ p[10] ] ;
 
-		// If terminal radius is reached, kill particle
-		if( p[6] >= p[7] ){ _P.splice(i,1) ; continue ;}
+		// Max out radius at rMax, kill particle, run callback
+		if( p[6] >= p[7] )
+		{
+			if(p[11]) p[11].call(this, p) ;
+			_P.splice(i,1) ;
+			continue ;
+		}
 
 		// Another possible case: dr turns -ve
 		if( p[8] <= 0 ){ _P.splice(i,1) ; continue ;}
