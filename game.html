@@ -33,11 +33,12 @@
 <div 	id="red-glo"						    style="z-index: 3000"></div>
 
 <div id="segment-container">
-	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px; z-index:" />
+	<img id="seg-colon" src="img/7seg-colon.png" style="left: 696px; top: 685px; display: none" />
 </div>
 
 <img 	id="spatter-prim" 	src="img/spatter-prim.png" 		style="display:none" />
 <img 	id="glass-particle" src="img/glass-particle.png" 	style="display:none" />
+<img 	id="gflash-prim" 	src="img/gflash-prim.png" 		style="display:none" />
 
 <!-- composite many spatter primitives @ random radii
 	 and positions to make a unique 'spatter sprite',
@@ -49,16 +50,18 @@
 <div 	id="bubble-container" 					style="z-index: 2000"></div>
 <div 	id="shard-container"					style="z-index: 1500"></div>
 
-<div 	id="ray-container"						style="z-index: 550"></div>
+<div 	id="ray-container"						style="z-index: 750"></div>
 
-<canvas id="g-cnv" 				width="512"		height="384" 	style="z-index: 550; opacity: 0"></canvas>
-<canvas id="g-cnv-bg" 			width="512"		height="384" 	style="z-index: 500; opacity: 0"></canvas>
+<canvas id="g-cnv" 				width="512"		height="384" 	style="z-index: 600; opacity: 0"></canvas>
+
+<canvas id="g-flash-cnv"		width="512"		height="384"	style="z-index: 550"></canvas>
+
+<canvas id="g-cnv-bg" 			width="512"		height="384" 	style="z-index: 500"></canvas>
 
 <div 	id="crt-blank"											style="z-index: 425"></div>
 <canvas id="shard-sprite"		width="48" 		height="12"		style="display: none"></canvas>
 <canvas id="bubble-sprite"		width="420" 	height="60"		style="display: none"></canvas>
-<canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
-
+<canvas id="gcell-sprite"		width="240"		height="240"	style="display: block"></canvas>
 
 <!-- image data for coloured backgrounds -->
 <div style="display: none">
@@ -71,11 +74,11 @@
 	<img id="bg-6" src="img/bg-vio.jpg" />
 </div>
 
-<a style="position: absolute; z-index: 2000" href="game.html">RELOAD</a>
-<a style="position: absolute; z-index: 2000; left: 100px" href="javascript:doFireworks()">RENDER</a>
-<a style="position: absolute; z-index: 2000; left: 200px" href="spatter.html">SPATTER</a>
+<a style="position: absolute; z-index: 10000" href="game.html">RELOAD</a>
+<a style="position: absolute; z-index: 10000; left: 100px" href="javascript:doFireworks()">RENDER</a>
+<a style="position: absolute; z-index: 10000; left: 200px" href="javascript:gfClick()">GFLASH</a>
 
-<a style="position: absolute; z-index: 2000; left: 300px" href="gtrace.html">GTRACE</a>
+<a style="position: absolute; z-index: 10000; left: 300px" href="gtrace.html">GTRACE</a>
 
 <div 	id="hmt" style="display: none"></div>
 
@@ -88,10 +91,10 @@
 <!--                                  -->
 <script>
 
-var C_TAPEVENT_DN	= 'touchstart' ;
-var C_TAPEVENT_UP	= 'touchend' ;
+var C_TAPEVENT_DN	= 'mousedown' ;
+var C_TAPEVENT_UP	= 'mouseup' ;
 
-var C_DISAUDIO		= false ;
+var C_DISAUDIO		= true ;
 
 var C_SCRWID		= 1024 ;
 var C_SCRHGT		= 768 ;
@@ -290,14 +293,14 @@ var _cnvSP ; // spatter canvas/context
 var _ctxSP ;
 
 var _DREG = [] ; // blood drips
-var _GPCL = [] ; // glass particles
+//var _GPCL = [] ; // glass particles
 
 // Counts calls to updateDREG
 // Used to decrement spatter size every n'th cycle
 var _IDREG = 0 ;
 
-var _IDRIP ; // drip registry
-var _IGPR ; // glass particle registry
+var _IDRIP ; // blood drip ticker
+var _IGPR ; // glass particle ticker
 
 var _elBody ;
 
@@ -305,6 +308,9 @@ var _elBGlo ;
 var _elRGlo ;
 
 var _elRS ; // rocker switch
+
+var _GFREG = [] ; // particle registry for g-flash effects
+var _IGFL ;
 
 function main()
 {
@@ -319,6 +325,9 @@ function main()
 
 	_cnvG 		= document.getElementById('g-cnv') ;
 	_ctxG 		= _cnvG.getContext('2d') ;
+
+	_cnvGF 		= document.getElementById('g-flash-cnv') ;
+	_ctxGF	 	= _cnvGF.getContext('2d') ;
 
 	_cnvGB 		= document.getElementById('g-cnv-bg') ;
 	_ctxGB 		= _cnvGB.getContext('2d') ;
@@ -339,6 +348,7 @@ function main()
 	_elBody 	= document.getElementById('thebody') ;
 
 	_imgGP 		= document.getElementById('glass-particle') ;
+	_imgGF 		= document.getElementById('gflash-prim') ;
 
 	_cnvGL 		= document.getElementById('cnv-glass') ;
 	_ctxGL 		= _cnvGL.getContext('2d') ;
@@ -416,6 +426,8 @@ function powerUp()
 	},2500) ;
 
 	window.setTimeout(function(){
+		document.getElementById('seg-colon').style.display = 'block' ;
+
 		setDigit(0,7) ;
 		setDigit(1,0) ;
 		setDigit(2,0) ;
@@ -425,11 +437,11 @@ function powerUp()
 	},2000) ;
 
 	window.setTimeout(function(){
-		_cnvG.style.opacity = 1 ;
+		_cnvGB.style.opacity = 1 ;
 	},3000) ;
 
 	window.setTimeout(function(){
-		_cnvGB.style.diplay = 'block' ;
+		_cnvG.style.display = 'block' ;
 	},4000) ;
 
 	window.setTimeout(function(){
@@ -624,12 +636,6 @@ function renderBubbleSprite()
 *
 ****************************************************/
 
-
-function clearGCanvas()
-{
-	_ctxG.clearRect(0,0,C_GCNV_W,C_GCNV_H) ;
-}
-
 function doGCycle()
 {
 	// Clear draw queue, re-randomize oragnic factor
@@ -642,16 +648,16 @@ function doGCycle()
 	var cx = C_GCNV_W / 2 ;
 	var cy = C_GCNV_H / 2 ;
 
-	//clearGCanvas() ;
-
 	// Paint background onto canvas
 	//var img = document.getElementById('bg-'+_bgIdx);
 
-	//_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
-	//_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 1024, 768) ;
+	//_ctxG.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
+	//_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
 
 	// Re-initialize foreground canvas to current colour
 	initGCnvFG() ;
+	inigGCnvBG() ;
+
 	_cnvG.style.opacity = 1.0 ;
 
 	// Calculate cell coordinates
@@ -706,7 +712,6 @@ function drawFaded()
 	}
 
 	// Paint the cell
-	//console.log('Painting cell at _iDFLoc: '+_iDFLoc) ;
 	drawGCell(_GDQ[_iDFLoc][0], _GDQ[_iDFLoc][1], _GDQ[_iDFLoc][2]) ;
 
 	_iDFLoc++ ;
@@ -764,7 +769,160 @@ function calcSol(cx, cy, rNom, ao){
     }
 }
 
+// r = final radius
+// a = angle
+// v = velocity (pixels per tick)
 
+function gfClick()
+{
+	doGFlash() ;
+}
+
+function doGFlash()
+{
+	var r, w, a, dr, dw ;
+
+	window.clearInterval(_IBSP) ;
+	window.clearInterval(_ITMR) ;
+	window.clearInterval(_IGCY) ;
+	window.clearInterval(_IDG) ;
+
+	// Fire up ticker ...
+	_IGFL = window.setInterval('updateGFReg()', 100) ;
+	
+	_cnvG.style.opacity = 1 ;
+	drawGMask() ;
+
+	// Spawn some particles
+	for(var i = 0; i < 5; i++)
+	{
+		r = randomInt(300,400) ;
+		w = randomInt(20,40) ;
+		//a = randomInt(0,2 * Math.PI * 100) / 100 ;
+		a = i * (2 * Math.PI) / 5 ;
+
+		dr = randomInt(10,25) ;
+		dw = randomInt(5,8) ;
+
+		_GFREG.push([r,w,a,dr,dw,0]) ;
+	}
+
+	window.setTimeout(function(){
+		console.log('resuming normal operation after gflash...') ;
+		window.clearInterval(_IGFL) ;
+
+		_ctxG.clearRect(0,0,512,384) ;
+
+		_IBSP 	= window.setInterval('spawnBubble()', C_BUB_SPINT) ;
+		_ITMR 	= window.setInterval('timeTick()',1000) ;
+		_IGCY 	= window.setInterval('doGCycle()',C_GCYC_INT) ;
+		_IDG 	= window.setInterval('drawFaded()',C_GDF_INT) ;
+	},10000) ;
+}
+
+function drawGMask()
+{
+	
+	var imgData = _ctxG.getImageData(0,0,512,384) ;
+
+	for(var i = 0; i < _GDQ.length; i++)
+	{
+		//drawGCellT(_GDQ[i][0], _GDQ[i][1], _GDQ[i][2]) ;
+		cutArc(imgData, _GDQ[i][0], _GDQ[i][1], _GDQ[i][2], 2) ;
+	}
+
+	_ctxG.putImageData(imgData,0,0,512,384) ;
+}
+
+var C_CUTSTEPS = 180 ;
+function cutArc(imgData,cx,cy,r,w)
+{
+
+	var da = 2 * Math.PI / C_CUTSTEPS ;
+
+	var x, y ;
+	var a ;
+
+	for(var j = 0; j < w; j++)
+	{
+		for(var i = 0; i < C_CUTSTEPS; i++)
+		{
+			a = i * da ;
+			console.log('cutting at angle '+a) ;
+			x = cx + r * Math.cos(a) ;
+			y = cy + r * Math.sin(a) ;
+
+			x = Math.round(x) ;
+			y = Math.round(y) ;
+
+			setPixel(imgData, x, y, 255, 255, 255, 0) ;
+		}
+
+		r-- ;
+	}
+}
+
+function fillGCnv()
+{
+	_ctxG.drawImage(_elBGI,0,0,256,192,0,0,512,384) ;
+}
+
+function setPixel(imageData, x, y, r, g, b, a)
+{
+    index = (x + y * imageData.width) * 4;
+    imageData.data[index+0] = r;
+    imageData.data[index+1] = g;
+    imageData.data[index+2] = b;
+    imageData.data[index+3] = a;
+}
+
+function updateGFReg()
+{
+	if(!_GFREG.length) return ;
+
+	var cx, cy ;
+	var x, y ;
+
+	var r,w,a,dr,dw,rCur ;
+
+	// Clear dat shit
+	_ctxGF.clearRect(0,0,512,384) ;
+
+	for(var i = 0; i < _GFREG.length; i++)
+	{	
+		r 		= _GFREG[i][0] ;
+		w 		= _GFREG[i][1] ;
+		a 		= _GFREG[i][2] ;
+		dr 		= _GFREG[i][3] ;
+		dw 		= _GFREG[i][4] ;
+		rCur 	= _GFREG[i][5] ;
+
+		// If nominal radius is reached, remove entry from array, skip drawing
+		if(rCur >= r)
+		{
+			_GFREG.splice(i,1) ;
+			continue ;
+		}
+
+		// Otherwise, increment and draw as usual ...
+		rCur += dr ;
+		w += dw ;
+
+		// GFlash effects always go from center of canvas...
+		cx = 256 + rCur * Math.cos(a) ;
+		cy = 192 + rCur * Math.sin(a) ;
+
+		x = cx - w ;
+		y = cy - w ;
+
+		// Paint dat shit
+		_ctxGF.drawImage(_imgGF,0,0,100,100,x,y,w,w) ;
+
+		// Save new values back to registry
+		_GFREG[i][5] = rCur ;
+		_GFREG[i][1] = w ;
+	}
+}
 
 /***************************************************
 *
@@ -2111,13 +2269,27 @@ function randomInt(min, max)
 
 #gcell-sprite
 {
-	z-index: 10000 ;
+	position: absolute ;
+	z-index: 25000 ;
 	border: 2px solid green ;
 	width: 240px ;
 	height: 240px ;
 	opacity: 1.0 ;
 
 	top: 300px ;
+}
+
+#gcell-sprite-t
+{
+	position: absolute ;
+	z-index: 25000 ;
+	border: 2px solid yellow ;
+	width: 240px ;
+	height: 240px ;
+	opacity: 1.0 ;
+
+	top: 300px ;
+	left: 300px ;
 }
 
 #shard-sprite
@@ -2147,6 +2319,14 @@ function randomInt(min, max)
 
 #ray-container{
 	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+}
+
+#g-cnv-neg
+{
+	position: absolute ;
+	/* double native canvas size for fullscreen */
 	width: 1024px ;
 	height: 768px ;
 }
@@ -2311,6 +2491,13 @@ img.disp-seg
 
 	left: 34px ;
 	top: 659px ;
+}
+
+#g-flash-cnv
+{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
 }
 
 </style>
