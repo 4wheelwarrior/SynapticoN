@@ -50,6 +50,7 @@
 	<img id="p-smoke" src="p-smoke.png" />
 	<img id="p-glass" src="p-glass.png" />
 	<img id="p-nuke"  src="p-nuke.png" />
+	<img id="reticle"  src="reticle.png" />
 
 	<!-- s = shard, t = target, c = geometry (c)ell -->
 	<canvas id="cnv-s" 	width="48" 		height="12"></canvas>
@@ -153,6 +154,7 @@ function main()
 	_IMS = document.getElementById('p-smoke') ;
 	_IMG = document.getElementById('p-glass') ;
 	_IMN = document.getElementById('p-nuke') ;
+	_IMR = document.getElementById('reticle') ;
 
 	// Initialize particle definitions
 	PD = [
@@ -190,7 +192,7 @@ function powerUp()
 	_IST = window.setInterval('spawnTarget()',1000) ;
 	window.setInterval('clearDebugCanvas()',5000) ;
 
-	_CNO.addEventListener('touchstart', oClick, false) ;
+	_CNO.addEventListener('click', oClick, false) ;
 }
 
 function powerDn()
@@ -369,19 +371,16 @@ function terminateMissile(p)
 	var d ; // distance from missile to target's center point
 	var r ; // current radius of target (1/2 width)
 
-	console.log('terminateMissile called') ;
-	console.log('Dumping contents of target registry') ;
-	for(var i = 0; i < _PT.length; i++)
-	{
-		console.log(_PT[i]) ;
-	}
+	//console.log('terminateMissile called') ;
+	//console.log('Dumping contents of target registry') ;
+	//for(var i = 0; i < _PT.length; i++){ console.log(_PT[i]) ; }
 
 	// Step 1 - Calculate explosion center (i.e. where click happened)
 	// Since particle origin is top left, add back 1/2 of round size (10) to get center.
 	xm = Math.floor( p[0] + p[7] * Math.cos(p[2]) ) + 10 ;
 	ym = Math.floor( p[1] + p[7] * Math.sin(p[2]) ) + 10 ;
 
-	console.log('Exploded at '+xm+', '+ym) ;
+	//console.log('Exploded at '+xm+', '+ym) ;
 
 	// Plot this on debug canvas (remember to subtract 10 again for positioning with top/left origin... dah!)
 	plotDebugParticle((xm - 10),(ym - 10),1) ;
@@ -404,11 +403,11 @@ function terminateMissile(p)
 
 		r = Math.floor(pt[6] / 2) ;
 
-		console.log('Target center at '+xt+', '+yt+' | Proximity: '+d+' | Tgt radius: '+r) ;
+		//console.log('Target center at '+xt+', '+yt+' | Proximity: '+d+' | Tgt radius: '+r) ;
 
 		// If proximity to target center is < target radius ... we're in. Boom.
 		// Trigger explosion effect, kill target particle.
-		if(d < r)
+		if(d < Math.floor(0.7 * r))
 		{
 			spawnShardSystem(xt, yt, 100, 8) ;
 			_PT.splice(i,1) ;
@@ -478,11 +477,17 @@ function renderOverlay()
 	// Render particles from main particle registry
 	for(var i = 0; i < _P.length; i++)
 	{
+		// [0, 1, 2, 3,  4, 5, 	6, 7,    8,  9,   10]
+		// [x, y, a, da, s, ds, r, rMax, dr, ddr, id]
 		p = _P[i] ;
 
-		// Max out radius at rMax, kill particle, run callback
+		// If radius reaches or exceeds rMax, kill particle, run callback
+		// Render one last time with r = rMax to make sure final position is accurate
 		if( p[6] >= p[7] )
 		{
+			p[6] = p[7] ;
+			renderParticle(p) ;
+
 			if(p[11]) p[11].call(this, p) ;
 			_P.splice(i,1) ;
 			continue ;
@@ -492,6 +497,9 @@ function renderOverlay()
 		if( p[8] <= 0 ){ _P.splice(i,1) ; continue ;}
 
 		renderParticle(p) ;
+
+		// If particle is a nuke, render its reticle too
+		if( p[10] == 13 ) renderReticle(p) ;
 	}
 
 	// Render particles from target particle registry
@@ -504,11 +512,18 @@ function renderOverlay()
 		{
 			if(p[11]) p[11].call(this, p) ;
 			_PT.splice(i,1) ;
+
 			continue ;
 		}
 
-		// Another possible case: dr turns -ve
-		if( p[8] <= 0 ){ _P.splice(i,1) ; continue ;}
+		// Another possible case: dr turns -ve TODO: look into this ...
+		if( p[8] <= 0 )
+		{
+			if(p[11]) p[11].call(this, p) ;
+			_PT.splice(i,1) ;
+
+			continue ;
+		}
 
 		renderParticle(_PT[i]) ;
 	}
@@ -525,8 +540,6 @@ function renderParticle(p)
 	if(p[10] == 0) d = PD[ randomInt(0,3) ]
 	else d = PD[ p[10] ] ;
 
-	
-
 	x = p[0] + p[6] * Math.cos( p[2] ) ;
 	y = p[1] + p[6] * Math.sin( p[2] ) ;
 
@@ -536,10 +549,75 @@ function renderParticle(p)
 	// Copy pixels from particle sprite
 	_CXO.drawImage( d[0], d[1], d[2], d[3], d[4], x, y, p[4], p[4] ) ;
 
+	// Advance particle position (tried this in main renderOverlay() loop, didn't work...)
 	p[2] += p[3] ;		// a += da
 	p[8] += p[9] ;		// dr += ddr
 	p[6] += p[8] ;		// r += dr
 	p[4] += p[5] ;		// s += ds
+}
+
+function renderReticle(p)
+{
+	var x, y ;	 // position of reticle
+	var r1, r2 ; // radii of proximity indicators
+
+	// Angle of proximity indicator being drawn
+	var a ;
+
+	// Find final position of nuke
+	x = p[0] + p[7] * Math.cos( p[2] ) ;
+	y = p[1] + p[7] * Math.sin( p[2] ) ;
+
+	// Adjust so reticle is centered
+	x = Math.floor( x - 20 ) ;
+	y = Math.floor( y - 20 ) ;
+
+	// Draw base reticle sprite
+	_CXO.drawImage( _IMR, 0, 0, 40, 40, x, y, 40, 40 ) ;
+
+
+	// Move x,y back to center of reticle
+	x += 20 ;
+	y += 20 ;
+
+	// Render proximity indicator (RIGHT of TDC and its opposite)
+	a = ( Math.PI / 2 ) - ( p[6] / p[7] ) * ( Math.PI / 2 ) ;
+
+	// Avoid overshooting horizontal ...
+	if(a < 0) a = 0 ;
+	renderProxInd(x, y, a) ;
+
+	a += Math.PI ;
+	renderProxInd(x, y, a) ;
+
+	// Render proximity indicator (LEFT of TDC and its opposite)
+	a = ( Math.PI / 2 ) + ( p[6] / p[7] ) * ( Math.PI / 2 ) ;
+
+	// Avoid overshooting horizontal ...
+	if(a < 0) a = 0 ;
+	renderProxInd(x, y, a) ;
+
+	a += Math.PI ;
+	renderProxInd(x, y, a) ;
+}
+
+function renderProxInd(x, y, a)
+{
+	// x/y points of line defining proximity indicator being drawn
+	var px1, py1 ;
+	var px2, py2 ;
+
+	px1 = x + 12 * Math.cos(a) ;
+	py1 = y + 12 * Math.sin(a) ;
+
+	px2 = x + 20 * Math.cos(a) ;
+	py2 = y + 20 * Math.sin(a) ;
+
+	_CXO.beginPath() ;
+	_CXO.strokeStyle = '#FFF' ;
+	_CXO.moveTo(px1, py1) ;
+	_CXO.lineTo(px2, py2) ;
+	_CXO.stroke() ;
 }
 
 function randomInt(min, max)
