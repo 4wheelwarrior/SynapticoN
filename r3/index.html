@@ -35,6 +35,23 @@
 		z-index: 200 ;
 	}
 
+	#hardware{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		background: url('hardware.png') ;
+		background-size: 1024px 768px ;
+		pointer-events: none
+	}
+
+	#crt-blank
+	{
+		position: absolute ;
+		background: url('crt-blank.jpg') ;
+		width: 1024px ;
+		height: 768px ;
+		display: none ;
+	}
 </style>
 <script src="poly.js"></script>
 </head>
@@ -42,8 +59,11 @@
 
 <div id="score"></div>
 
-<canvas id="cnv-d" width="512" height="384" style="z-index: 75"></canvas>
+<div id="hardware" style="z-index: 210"></div>
+<div id="crt-blank" style="z-index: 200"></div>
+
 <canvas id="cnv-o" width="512" height="384" style="z-index: 100"></canvas>
+<canvas id="cnv-d" width="512" height="384" style="z-index: 75"></canvas>
 <canvas id="cnv-g" width="512" height="384" style="z-index: 50"></canvas>
 
 <div id="hidden">
