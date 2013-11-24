@@ -4,9 +4,6 @@ var GSEGS 		= 6 ;
 var DA 			= 2.39982772 ;
 var PHI 		= ( 1 + Math.sqrt(5) ) / 2 ;
 
-// Interval on which drawFaded is called
-var GDF_INT 	= 10 ;
-
 // G sprite cell radius (canvas coords)
 var GCELL_RAD	= 120 ;
 
@@ -41,10 +38,6 @@ var _gOrg ;
 
 // ms Delay before fading out geom. canvas after drawing
 var GFDELAY 	= 4400 ;
-
-// Interval on which new geom. cycles are spawned
-// (includes allowance for draw time, fadeout time, and blank space)
-var GCYC_INT 	= 10000 ;
 
 // "Geometry Draw Queue"
 // Contains center points, radii for geometry cells
@@ -107,8 +100,9 @@ function initGeom()
 
 function startGeom()
 {
-	window.setInterval('drawFaded()', GDF_INT) ;
-	window.setInterval('doGCycle()', GCYC_INT) ;
+	window.setInterval('drawFaded()', 10) ;
+	window.setInterval('doGCycle()', 10000) ;
+	window.setInterval('nextBG()', 60000) ;
 }
 
 function initGCnvFG()
@@ -280,4 +274,19 @@ function calcSol(cx, cy, rNom, ao){
         y = Math.round(cy + rNom * Math.sin(a)) ;
         _GDQ.push([x, y, Math.round(rNom)]) ;
     }
+}
+
+function nextBG()
+{
+	// If we're on the last background already, we're done ... halt the game
+	if(_bgIdx == 6)
+	{
+		halt() ;
+		return ;
+	}
+    
+    _bgIdx++ ;
+
+    // Re-initialize background canvas to new colour
+    initGCnvBG() ;
 }

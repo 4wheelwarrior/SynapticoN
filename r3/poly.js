@@ -21,23 +21,19 @@ function drawRoundedPoly(ctx, cX, cY, r, cRad, vCount, aOffset)
 	var pts ;
 
 	// 1st coat (innermost edge)
-	pts = getPolyPts(cX, cY, r - 6, vCount, aOffset) ;
-	ctx.lineWidth = 8 ;
-	drawRoundedPolyLayer(ctx, pts, cRad, 0.2) ;
+	pts = getPolyPts(cX, cY, r - 7, vCount, aOffset) ;
+	ctx.lineWidth = 3 ;
+	drawRoundedPolyLayer(ctx, pts, cRad, 0.3) ;
 
 	// 2nd coat
-	pts = getPolyPts(cX, cY, r - 4, vCount, aOffset) ;
-	drawRoundedPolyLayer(ctx, pts, cRad, 0.4) ;
+	pts = getPolyPts(cX, cY, r - 5, vCount, aOffset) ;
+	ctx.lineWidth = 2 ;
+	drawRoundedPolyLayer(ctx, pts, cRad, 0.5) ;
 
 	// 3rd coat
-	pts = getPolyPts(cX, cY, r - 2, vCount, aOffset) ;
-	ctx.lineWidth = 5 ;
-	drawRoundedPolyLayer(ctx, pts, cRad, 0.5) ;
-	
-	// 4th coat (outermost edge)
-	pts = getPolyPts(cX, cY, r - 1, vCount, aOffset) ;
-	ctx.lineWidth = 2 ;
-	drawRoundedPolyLayer(ctx, pts, cRad, 0.8) ;
+	pts = getPolyPts(cX, cY, r-3, vCount, aOffset) ;
+	ctx.lineWidth = 3 ;
+	drawRoundedPolyLayer(ctx, pts, cRad, 0.3) ;
 }
 
 // Lifted from http://stackoverflow.com/questions/1255512/how-to-draw-a-rounded-rectangle-on-html-canvas
@@ -69,30 +65,24 @@ function drawRoundedPolyLayer(ctx, pts, cRad, opac)
 function drawCirclePoly(ctx, cx, cy, r)
 {
     ctx.beginPath() ;
-    ctx.lineWidth = 8 ;
-	ctx.strokeStyle = 'rgba(255,255,255,0.2)' ;
-	ctx.arc(cx, cy, r - 6, 0, 2 * Math.PI, false) ;
-	ctx.stroke() ;
-
-	// 2nd coat
-	ctx.beginPath() ;
-	ctx.strokeStyle = 'rgba(255,255,255,0.4)' ;
-	ctx.arc(cx, cy, r - 4, 0, 2 * Math.PI, false) ;
+    ctx.lineWidth = 3 ;
+	ctx.strokeStyle = 'rgba(255,255,255,0.3)' ;
+	ctx.arc(cx, cy, r - 8, 0, 2 * Math.PI, false) ;
 	ctx.stroke() ;
 
 	// 3rd coat
 	ctx.beginPath() ;
-	ctx.lineWidth = 5 ;
+	ctx.lineWidth = 2 ;
 	ctx.strokeStyle = 'rgba(255,255,255,0.5)' ;
-	ctx.arc(cx, cy, r - 2, 0, 2 * Math.PI, false) ;
+	ctx.arc(cx, cy, r - 5, 0, 2 * Math.PI, false) ;
 	ctx.stroke() ;
 
 	
 	// 4th coat (outermost edge)
 	ctx.beginPath() ;
-	ctx.lineWidth = 2 ;
-	ctx.strokeStyle = 'rgba(255,255,255,0.8)' ;
-	ctx.arc(cx, cy, r - 1, 0, 2 * Math.PI, false) ;
+	ctx.lineWidth = 3 ;
+	ctx.strokeStyle = 'rgba(255,255,255,0.3)' ;
+	ctx.arc(cx, cy, r - 3, 0, 2 * Math.PI, false) ;
 	ctx.stroke() ;
 }
 
