@@ -184,7 +184,7 @@ function doGCycle()
 
 	//console.log('Starting draw sequence, DQ size is '+_GDQ.length) ;
 	// Start draw queue processor. Stopped when drawFaded() has no more elements
-	_IDG = window.setInterval('drawFaded()', GDF_INT) ;
+	_IDG = window.setInterval('drawFaded()', 10) ;
 
 	// Flip draw direction for next cycle
 	if(!_gDir) _gDir = 1 ;

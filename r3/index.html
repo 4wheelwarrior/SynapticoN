@@ -60,13 +60,38 @@
 		height: 768px ;
 		display: none ;
 	}
+
+	#cnv-spatter
+	{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		pointer-events: none ;
+	}
+
+	#spatter-mask
+	{
+		position: absolute ;
+		width: 1024px ;
+		height: 768px ;
+		background: url('spatter-mask.png') ;
+		pointer-events: none ;
+		display: none ;
+	}
 </style>
+
 <script src="poly.js"></script>
 <script src="geom.js"></script>
+<script src="spat.js"></script>
+
 </head>
 <body>
 
 <div id="score"></div>
+
+<div id="spatter-mask" style="z-index: 350"></div>
+
+<canvas id="cnv-spatter" width="1024" height="768" style="z-index: 300"></canvas>
 
 <div id="hardware" style="z-index: 210"></div>
 <div id="crt-blank" style="z-index: 200"></div>
@@ -78,11 +103,13 @@
 <canvas id="cnv-b" width="512" height="384" style="z-index: 30"></canvas>
 
 <div id="hidden">
-
 	<!-- particle sprites -->
 	<img id="p-smoke" src="p-smoke.png" />
 	<img id="p-glass" src="p-glass.png" />
 	<img id="p-nuke"  src="p-nuke.png" />
+	<img id="p-blood" src="p-blood.png" />
+
+	<!-- sort of a particle ... -->
 	<img id="reticle"  src="reticle.png" />
 	
 	<!-- background colours -->
@@ -94,7 +121,8 @@
 	<img id="bg-5" src="bg-ind.jpg" />
 	<img id="bg-6" src="bg-vio.jpg" />
 
-	<!-- s = shard, t = target, c = geometry (c)ell -->
+	<!-- s = shard, t = target, c = geometry (c)ell sprites -->
+	<!-- (rendered programatically on startup) -->
 	<canvas id="cnv-s" 	width="48" 		height="12"></canvas>
 	<canvas id="cnv-t" 	width="420" 	height="60"></canvas>
 	<canvas id="cnv-c" 	width="240" 	height="240" style="border: 3px solid white"></canvas>
@@ -212,6 +240,7 @@ function main()
 	renderShardSprite() ;
 	renderTargetSprite() ;
 	initGeom() ;
+	initSpatter() ;
 	powerUp() ;
 
 	//window.setTimeout('powerDn()',10000) ;
@@ -224,6 +253,7 @@ function powerUp()
 	window.setInterval('clearDebugCanvas()',5000) ;
 
 	startGeom() ;
+	startSpatter() ;
 
 	_CNO.addEventListener('touchstart', oClick, false) ;
 }
@@ -480,7 +510,8 @@ function registerMiss()
 	if(_H == -3)
 	{
 		_H = 0 ;
-		alert('DEATH!') ;
+		//alert('DEATH!') ;
+		runDeathSequence() ;
 	}
 
 	document.getElementById('score').innerHTML = 'H: '+_H+' | S: '+_S ;
