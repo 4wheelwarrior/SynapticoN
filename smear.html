@@ -1,0 +1,236 @@
+<html>
+<head>
+
+<script>
+
+// Blood particle
+var _IPB ;
+
+// Smear canvas / context
+var _CNS ;
+var _CXS ;
+
+// Smear volume readout
+var _SMV ;
+
+// Raw image data for eraser and paintbrush
+var _dEraser ;
+var _dPaint ;
+
+// Starting x, y coords on mousedown 
+var _xS, _yS ;
+
+// Current x, y coords under finger while smearing
+var _xC, _yC ;
+
+// Last x, y coords under finger 
+var _xL, _yL ;
+
+// Distance from last to current x, y
+var _d ;
+
+// Volume of virtual "blood reservoir" built up on fingertip.
+// Calculated as the sum of opacities of the pixels sampled
+// from a square (centered at fingertip coordinate) and
+// Multiplied by ratio of the square's and inscribed circle's areas.
+
+// As blood is "picked up"
+
+// Therefore, a blotch can be smeared out, leaving behind a slight trace.
+// When reservoir reaches zero, fingertip is dry. As it approaches zero, gradually decrease the flow rate.
+var _RES ;
+
+// Rate of flow out of reservoir. Over a given smear distance,
+// total amount of blood deposited will be (_dRout * d).
+// Expressed as (units of opacity (0.0 - 1.0)).
+var _dR = 0. ;
+
+function initSmear()
+{
+	_IPB = document.getElementById('p-blood') ;
+	_CNS = document.getElementById('smearme') ;
+	_SMV = document.getElementById('smearv') ;
+	_CXS = _CNS.getContext('2d') ;
+}
+
+function startSmear()
+{
+	_CNS.addEventListener('touchstart', onTouchStart, false) ;
+	document.getElementById('touchmove').addEventListener('mousemove', onTouchMove, false) ;
+	_CNS.addEventListener('touchend', onTouchEnd, false) ;
+
+	var img = document.getElementById('test-spatter') ;
+	_CXS.drawImage(img, 0, 0, 512, 384, 0, 0, 1024, 768) ;
+}
+
+var _td ;
+var _vv ;
+function onTouchStart(e)
+{
+	_td = true ;
+	_vv = 0 ;
+
+	_xS = e.pageX ;
+	_yS = e.pageY ;
+
+	_xL = _xS ;
+	_yL = _yS ;
+}
+
+function onTouchMove(e)
+{
+	if(!_td) return ;
+
+	_xC = e.pageX ;
+	_yC = e.pageY ;
+
+	// Do some shit
+	//var d = dist(_xL, _yL, _xC, _yC) ;
+
+	// OK... to approximate the volume, we're gonna do some lines ...
+	// Start at centerline (_xL, _yL) -> (_xC, _yC) ... sample pixels along that line.
+	// Do the same thing +/- N lines to each side of centerline
+	//var v ;
+
+	_vv += smearVolume(_xL, _yL, _xC, _yC) ;
+	_SMV.innerHTML = _vv ;
+
+	// Update "last" x, y position for next invocation of touchMove
+	_xL = _xC ;
+	_yL = _yC ;
+}
+
+function onTouchEnd(e)
+{
+	// Ending x, y coords
+	var xE = e.pageX ;
+	var yE = e.pageY ;
+
+	var d = dist(_xS, _yS, xE, yE) ;
+
+	/*
+	_CXS.strokeStyle = '#000000' ;
+	_CXS.moveTo(_xS, _yS) ;
+
+	var x = _xS + d * Math.cos(3 / 2 * Math.PI) ;
+	var y = _yS + d * Math.sin(3 / 2 * Math.PI) ;
+	_CXS.lineTo(x, y) ;
+	_CXS.stroke() ;
+	*/
+
+	if( d < 10 ) alert('exiting with distance '+d) ;
+	//alert('Smear volume '+_vv) ;
+	_td = false ;
+}
+
+function smearVolume(x1, y1, x2, y2)
+{
+	var v = 0 ;
+
+	// We'll express line as starting point (x1, y1) with radius (r) at angle (a)
+	var r = dist(x1, y1, x2, y2) ;
+	var a = getAngle(x1, y1, x2, y2) ;
+
+	// We need to sample a center line, and lines to either side
+	// Basically, transpose a sample line perpendicular to itself
+	var aPerp = a + Math.PI / 2 ;
+
+	// Origin point of current line being sampled
+	var x, y ;
+
+	for(var rP = -10; rP <= 20; rP += 4)
+	{
+		x = x1 + rP * Math.cos(aPerp) ;
+		y = y1 + rP * Math.sin(aPerp) ;
+
+		v += lineVolume(x, y, r, a) ;
+	}
+
+	return v ;
+}
+
+// Does a line off the canvas ... sums up the alpha values of all pixels
+function lineVolume(x1, y1, r, a)
+{
+	// Volume ... duh
+	var v = 0 ;
+
+	// Current x, y coordinate being sampled
+	var x, y ;
+
+	//console.log('Line polar coords (x,y,a,r): '+x1+', '+y1+', '+a+', '+r) ;
+
+	// Raw pixel data
+	var PX ;
+
+	for(var rC = 0; rC < r; rC += 4)
+	{
+		x = Math.floor( x1 + rC * Math.cos(a) ) ;
+		y = Math.floor( y1 + rC * Math.sin(a) ) ;
+
+		PX = _CXS.getImageData(x, y, 1, 1) ;
+		
+		//console.log('ImageData at '+x+', '+y+': '+PX.data[3]) ;
+		_CXS.strokeStyle = '#000000' ;
+		_CXS.moveTo(x, y) ;
+		_CXS.lineTo(x + 1, y + 1) ;
+		_CXS.stroke() ;
+
+		v += PX.data[3] ;
+	}
+
+	return v ;
+}
+
+function getAngle(x1, y1, x2, y2)
+{
+	var a = Math.atan((y2 - y1) / (x2 - x1)) ;
+
+	// Qudrant 1
+	if(x2 > x1 && y2 > y1) return a
+
+	// Quadrant 2
+	if(x1 > x2 && y2 > y1) return(Math.PI + a)
+
+	// Quadrant 3
+	if(x1 > x2 && y1 > y2) return(Math.PI + a)
+
+	// Quadrant 4
+	if(x2 > x1 && y1 > y2) return(2 * Math.PI + a)
+}
+
+function dist(x1,y1,x2,y2)
+{
+	var d = Math.sqrt(Math.pow((x2 - x1),2) + Math.pow((y2 - y1),2))  ;
+	return Math.floor(d) ;
+}
+</script>
+</head>
+
+<body id="thebody">
+	<div style="display: none">
+		<img id="p-blood" src="img/spatter-prim.png" />
+		<img id="test-spatter" src="img/test-spatter.png" />
+	</div>
+
+	<style>
+		#smearv{
+			display: block ;
+			width: 120px ;
+			height: 40px ;
+			font-size: 20px ;
+			position: absolute ;
+			top: 10px ;
+			left: 10px ;
+			pointer-events: none ;
+		}
+	</style>
+	<div id="smearv"></div>
+
+	<canvas id="smearme" width="1024" height="768" />
+	<script>
+		window.setTimeout(function(){initSmear(); startSmear();}, 200) ;
+	</script>
+</body>
+
+</html>
