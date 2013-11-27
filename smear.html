@@ -106,6 +106,8 @@ var _td ;
 var _vv = 0 ;
 function onTouchStart(e)
 {
+	_SMV.value = 'TOUCHSTART' ;
+
 	_td = true ;
 	//_vv = 0 ;
 
@@ -175,6 +177,8 @@ function onTouchEnd(e)
 	// Ending x, y coords
 	var xE = e.pageX ;
 	var yE = e.pageY ;
+
+	_SMV.value = 'TOUCHEND at '+xE+', '+yE ;
 
 	var d = dist(_xS, _yS, xE, yE) ;
 
