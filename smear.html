@@ -43,11 +43,34 @@ var _RES ;
 // Rate of flow out of reservoir. Over a given smear distance,
 // total amount of blood deposited will be (_dRout * d).
 // Expressed as (units of opacity (0.0 - 1.0)).
-var _dR = 0. ;
+var _dR = 15 ;
+
+var _ISM ;
+
+var _IDB ;
+
+// Blood spatter particle is copied into this canvas
+// So we can get its pixel data and use the alpha values...
+// Can't getPixelData() directly on an image element, apparently ...
+var _CNB, _CXB ;
+
+var _IMS ;
 
 function initSmear()
 {
 	_IPB = document.getElementById('p-blood') ;
+	
+	_CNB = document.getElementById('cnv-blood') ;
+	_CXB = _CNB.getContext('2d') ;
+
+	_CXB.drawImage(_IPB,0,0,50,50,0,0,50,50) ;
+	_IDB = _CXB.getImageData(0,0,50,50) ;
+
+	_IMS = document.getElementById('smear-prim') ;
+
+	//for( var i = 3; i < _IDB.data.length; i += 4)
+	//	console.log(_IDB.data[i]) ;
+
 	_CNS = document.getElementById('smearme') ;
 	_SMV = document.getElementById('smearv') ;
 	_CXS = _CNS.getContext('2d') ;
@@ -56,25 +79,43 @@ function initSmear()
 function startSmear()
 {
 	_CNS.addEventListener('touchstart', onTouchStart, false) ;
-	document.getElementById('touchmove').addEventListener('mousemove', onTouchMove, false) ;
+	_CNS.addEventListener('touchmove', onTouchMove, false) ;
 	_CNS.addEventListener('touchend', onTouchEnd, false) ;
 
 	var img = document.getElementById('test-spatter') ;
 	_CXS.drawImage(img, 0, 0, 512, 384, 0, 0, 1024, 768) ;
 }
 
+// Multiplies the opacities from our spatter particle
+// Into the spatter canvas, forming a semi-translucent streak
+// (x, y) is top left coordinate of particle
+function compOpacity(x, y)
+{
+	// x, y on spatter canvas being re(p)ainted
+	var px ;
+	var py ;
+
+	// Iterate over alpha values in blood particle imageData
+	for(var i = 3; i < _IDB.data.length; i += 4)
+	{
+		console.log('Current opacity in pixel data: ' + _IDB.data[i]) ;
+	}
+}
+
 var _td ;
-var _vv ;
+var _vv = 0 ;
 function onTouchStart(e)
 {
 	_td = true ;
-	_vv = 0 ;
+	//_vv = 0 ;
 
 	_xS = e.pageX ;
 	_yS = e.pageY ;
 
 	_xL = _xS ;
 	_yL = _yS ;
+
+	_ISM = window.setInterval('smearTick()',100) ;
 }
 
 function onTouchMove(e)
@@ -83,17 +124,46 @@ function onTouchMove(e)
 
 	_xC = e.pageX ;
 	_yC = e.pageY ;
+}
 
-	// Do some shit
-	//var d = dist(_xL, _yL, _xC, _yC) ;
+function smearTick()
+{
+	// This really only applies to the mouse ... can't hover on a touch screen ;-)
+	if(!_td) return ;
 
+	// If we haven't moved, return
+	if(_xL == _xC && _yL == _yC) return ;
+
+	// Calculate smear volume between last and current coords
 	// OK... to approximate the volume, we're gonna do some lines ...
 	// Start at centerline (_xL, _yL) -> (_xC, _yC) ... sample pixels along that line.
-	// Do the same thing +/- N lines to each side of centerline
-	//var v ;
 
-	_vv += smearVolume(_xL, _yL, _xC, _yC) ;
-	_SMV.innerHTML = _vv ;
+	// We'll express line as starting point (x1, y1) with radius (r) at angle (a)
+	var r = dist(_xL, _yL, _xC, _yC) ;
+	var a = getAngle(_xL, _yL, _xC, _yC) ;
+
+	// We need to sample a center line, and lines to either side
+	// Basically, transpose a sample line perpendicular to itself
+	var aPerp = a + Math.PI / 2 ;
+
+	// Origin point of current line being sampled
+	var x, y ;
+
+	var lv ;
+
+	//console.log('a/aPerp is '+a+'/'+aPerp) ;
+	for(var rP = -10; rP <= 20; rP += 5)
+	{
+		x = Math.floor(_xL + rP * Math.cos(aPerp)) ;
+		y = Math.floor(_yL + rP * Math.sin(aPerp)) ;
+
+		_vv += lineVolume(x, y, r, a) ;
+	}
+
+	_SMV.value = _vv ;
+
+	// Paint smear between same coordinates
+	paintSmear(_xL, _yL, r, a) ;
 
 	// Update "last" x, y position for next invocation of touchMove
 	_xL = _xC ;
@@ -120,33 +190,13 @@ function onTouchEnd(e)
 
 	if( d < 10 ) alert('exiting with distance '+d) ;
 	//alert('Smear volume '+_vv) ;
+
+	_xL = null ;
+	_yL = null ;
+
+	window.clearInterval(_ISM) ;
+
 	_td = false ;
-}
-
-function smearVolume(x1, y1, x2, y2)
-{
-	var v = 0 ;
-
-	// We'll express line as starting point (x1, y1) with radius (r) at angle (a)
-	var r = dist(x1, y1, x2, y2) ;
-	var a = getAngle(x1, y1, x2, y2) ;
-
-	// We need to sample a center line, and lines to either side
-	// Basically, transpose a sample line perpendicular to itself
-	var aPerp = a + Math.PI / 2 ;
-
-	// Origin point of current line being sampled
-	var x, y ;
-
-	for(var rP = -10; rP <= 20; rP += 4)
-	{
-		x = x1 + rP * Math.cos(aPerp) ;
-		y = y1 + rP * Math.sin(aPerp) ;
-
-		v += lineVolume(x, y, r, a) ;
-	}
-
-	return v ;
 }
 
 // Does a line off the canvas ... sums up the alpha values of all pixels
@@ -168,13 +218,16 @@ function lineVolume(x1, y1, r, a)
 		x = Math.floor( x1 + rC * Math.cos(a) ) ;
 		y = Math.floor( y1 + rC * Math.sin(a) ) ;
 
+		//console.log('x1/y1/rC/a '+x1+'/'+y1+'/'+rC+'/'+a) ;
 		PX = _CXS.getImageData(x, y, 1, 1) ;
 		
-		//console.log('ImageData at '+x+', '+y+': '+PX.data[3]) ;
+		/*
+		console.log('ImageData at '+x+', '+y+': '+PX.data[3]) ;
 		_CXS.strokeStyle = '#000000' ;
 		_CXS.moveTo(x, y) ;
 		_CXS.lineTo(x + 1, y + 1) ;
 		_CXS.stroke() ;
+		*/
 
 		v += PX.data[3] ;
 	}
@@ -182,21 +235,71 @@ function lineVolume(x1, y1, r, a)
 	return v ;
 }
 
+function paintSmear(x1, y1, r, a)
+{
+	// Current x, y coordinate being sampled
+	var x, y ;
+
+	// Raw pixel data
+	var PX ;
+
+	for(var rC = 0; rC < r; rC += 20)
+	{
+		x = Math.floor( x1 + rC * Math.cos(a) ) ;
+		y = Math.floor( y1 + rC * Math.sin(a) ) ;
+
+		// Grab a 50x50 chunk of pixel data from smear canvas
+		PX = _CXS.getImageData(x, y, 50, 50) ;
+
+		// Iterate over alpha values, dimming them ...
+		for(var i = 3; i < _IDB.data.length ; i += 4 )
+		{
+			//PX.data[i] = Math.floor(PX.data[i] * 0.8) ;
+			PX.data[i] -= Math.floor(_IDB.data[i] * 0.3) ;
+		}
+
+		_CXS.putImageData(PX, x, y, 50, 50) ;
+
+		if(_vv > 0)
+		{
+			_CXS.drawImage(_IMS, x, y, 50, 50) ;
+			_vv -= 2000 ;
+		}
+	}
+}
+
 function getAngle(x1, y1, x2, y2)
 {
-	var a = Math.atan((y2 - y1) / (x2 - x1)) ;
+	var a ;
+
+	if( x2 == x1 && y2 >= y1 ) return( Math.PI / 2 ) ;
+	if( x2 == x1 && y1 >= y2 ) return( 3 * Math.PI / 2 );
+
+	a = Math.atan((y2 - y1) / (x2 - x1)) ;
 
 	// Qudrant 1
-	if(x2 > x1 && y2 > y1) return a
+	if( x2 >= x1 && y2 >= y1 ) return( a )
 
 	// Quadrant 2
-	if(x1 > x2 && y2 > y1) return(Math.PI + a)
+	if( x1 >= x2 && y2 >= y1 ) return( Math.PI + a )
 
 	// Quadrant 3
-	if(x1 > x2 && y1 > y2) return(Math.PI + a)
+	if( x1 >= x2 && y1 >= y2 ) return( Math.PI + a )
 
 	// Quadrant 4
-	if(x2 > x1 && y1 > y2) return(2 * Math.PI + a)
+	if( x2 >= x1 && y1 >= y2 ) return( 2 * Math.PI + a )
+}
+
+function getPixel(imageData, x, y)
+{
+    index = ( x + y * imageData.width ) * 4 ;
+
+    var r = imageData.data[ index + 0 ] ;
+    var g = imageData.data[ index + 1 ] ;
+    var b = imageData.data[ index + 2 ] ;
+    var a = imageData.data[ index + 3 ] ;
+
+    return [ r, g, b, a ] ;
 }
 
 function dist(x1,y1,x2,y2)
@@ -211,6 +314,7 @@ function dist(x1,y1,x2,y2)
 	<div style="display: none">
 		<img id="p-blood" src="img/spatter-prim.png" />
 		<img id="test-spatter" src="img/test-spatter.png" />
+		<img id="smear-prim" src="img/smear-prim.png" />
 	</div>
 
 	<style>
@@ -224,12 +328,24 @@ function dist(x1,y1,x2,y2)
 			left: 10px ;
 			pointer-events: none ;
 		}
+
+		#smearme{
+			position: absolute ;
+		}
+
+		#thebody{
+			background: black ;
+		}
 	</style>
-	<div id="smearv"></div>
+
+	<input id="smearv" />
 
 	<canvas id="smearme" width="1024" height="768" />
+
+	<canvas id="cnv-blood" width="50" height="50" />
+	
 	<script>
-		window.setTimeout(function(){initSmear(); startSmear();}, 200) ;
+		window.setTimeout(function(){initSmear(); startSmear();}, 500) ;
 	</script>
 </body>
 
