@@ -69,8 +69,8 @@ function initSmear()
 
 	_IMS = document.getElementById('smear-prim') ;
 
-	_CXT.drawImage(_IMS,0,0,160,160,0,0,160,160) ;
-	_PXS = _CXT.getImageData(0,0,160,160) ;
+	_CXT.drawImage(_IMS,0,0,100,100,0,0,100,100) ;
+	_PXS = _CXT.getImageData(0,0,100,100) ;
 
 
 	//for( var i = 3; i < _IDB.data.length; i += 4)
@@ -102,8 +102,8 @@ function onTouchStart(e)
 	//_td = true ;
 	//_vv = 0 ;
 
-	_xS = e.pageX ;
-	_yS = e.pageY ;
+	_xS = e.pageX - 50 ;
+	_yS = e.pageY - 50 ;
 
 	_xL = _xS ;
 	_yL = _yS ;
@@ -115,8 +115,8 @@ function onTouchMove(e)
 {
 	//if(!_td) return ;
 
-	_xC = e.pageX ;
-	_yC = e.pageY ;
+	_xC = e.pageX - 50 ;
+	_yC = e.pageY - 50 ;
 
 	_EVL.value = 'x/y: '+_xC+'/'+_yC ;
 }
@@ -246,7 +246,7 @@ function paintSmear(x1, y1, r, a)
 		y = Math.floor( y1 + rC * Math.sin(a) ) ;
 
 		// Grab a 50x50 chunk of pixel data from smear canvas
-		PX = _CXS.getImageData(x, y, 160, 160) ;
+		PX = _CXS.getImageData(x, y, 100, 100) ;
 
 		// Iterate over alpha values, dimming them ...
 		for(var i = 3; i < _PXS.data.length ; i += 4 )
@@ -255,11 +255,11 @@ function paintSmear(x1, y1, r, a)
 			PX.data[i] -= Math.floor(_PXS.data[i] * 1.1) ;
 		}
 
-		_CXS.putImageData(PX, x, y, 80, 80) ;
+		_CXS.putImageData(PX, x, y, 100, 100) ;
 
 		if(_vv > 0)
 		{
-			_CXS.drawImage(_IMS, x, y, 160, 160) ;
+			_CXS.drawImage(_IMS, x, y, 100, 100) ;
 			_vv -= 2000 ;
 		}
 	}
