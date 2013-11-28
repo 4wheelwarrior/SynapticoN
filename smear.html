@@ -49,12 +49,14 @@ var _ISM ;
 
 var _IDB ;
 
-// Blood spatter particle is copied into this canvas
+// Smear trail particle is copied into this canvas
 // So we can get its pixel data and use the alpha values...
 // Can't getPixelData() directly on an image element, apparently ...
-var _CNB, _CXB ;
+var _CNT, _CXT ;
 
+// Smear primitive ... painted in the wake of smear
 var _IMS ;
+var _PXS ;
 
 var _EVL ;
 
@@ -62,13 +64,14 @@ function initSmear()
 {
 	_IPB = document.getElementById('p-blood') ;
 	
-	_CNB = document.getElementById('cnv-blood') ;
-	_CXB = _CNB.getContext('2d') ;
-
-	_CXB.drawImage(_IPB,0,0,50,50,0,0,50,50) ;
-	_IDB = _CXB.getImageData(0,0,50,50) ;
+	_CNT = document.getElementById('cnv-smear') ;
+	_CXT = _CNT.getContext('2d') ;
 
 	_IMS = document.getElementById('smear-prim') ;
+
+	_CXT.drawImage(_IMS,0,0,160,160,0,0,160,160) ;
+	_PXS = _CXT.getImageData(0,0,160,160) ;
+
 
 	//for( var i = 3; i < _IDB.data.length; i += 4)
 	//	console.log(_IDB.data[i]) ;
@@ -88,22 +91,6 @@ function startSmear()
 
 	var img = document.getElementById('test-spatter') ;
 	_CXS.drawImage(img, 0, 0, 512, 384, 0, 0, 800, 600) ;
-}
-
-// Multiplies the opacities from our spatter particle
-// Into the spatter canvas, forming a semi-translucent streak
-// (x, y) is top left coordinate of particle
-function compOpacity(x, y)
-{
-	// x, y on spatter canvas being re(p)ainted
-	var px ;
-	var py ;
-
-	// Iterate over alpha values in blood particle imageData
-	for(var i = 3; i < _IDB.data.length; i += 4)
-	{
-		console.log('Current opacity in pixel data: ' + _IDB.data[i]) ;
-	}
 }
 
 var _td ;
@@ -259,20 +246,20 @@ function paintSmear(x1, y1, r, a)
 		y = Math.floor( y1 + rC * Math.sin(a) ) ;
 
 		// Grab a 50x50 chunk of pixel data from smear canvas
-		PX = _CXS.getImageData(x, y, 50, 50) ;
+		PX = _CXS.getImageData(x, y, 160, 160) ;
 
 		// Iterate over alpha values, dimming them ...
-		for(var i = 3; i < _IDB.data.length ; i += 4 )
+		for(var i = 3; i < _PXS.data.length ; i += 4 )
 		{
 			//PX.data[i] = Math.floor(PX.data[i] * 0.8) ;
-			PX.data[i] -= Math.floor(_IDB.data[i] * 0.3) ;
+			PX.data[i] -= Math.floor(_PXS.data[i] * 1.1) ;
 		}
 
-		_CXS.putImageData(PX, x, y, 50, 50) ;
+		_CXS.putImageData(PX, x, y, 80, 80) ;
 
 		if(_vv > 0)
 		{
-			_CXS.drawImage(_IMS, x, y, 50, 50) ;
+			_CXS.drawImage(_IMS, x, y, 160, 160) ;
 			_vv -= 2000 ;
 		}
 	}
@@ -365,7 +352,7 @@ function dist(x1,y1,x2,y2)
 
 	<canvas id="smearme" width="800" height="600" />
 
-	<canvas id="cnv-blood" width="50" height="50" />
+	<canvas id="cnv-smear" width="160" height="160" />
 	
 	<script>
 		window.setTimeout(function(){initSmear(); startSmear();}, 500) ;
