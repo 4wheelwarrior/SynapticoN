@@ -112,7 +112,7 @@ function onTouchStart(e)
 {
 	_EVL.value = 'TOUCHSTART' ;
 
-	_td = true ;
+	//_td = true ;
 	//_vv = 0 ;
 
 	_xS = e.pageX ;
@@ -126,7 +126,7 @@ function onTouchStart(e)
 
 function onTouchMove(e)
 {
-	if(!_td) return ;
+	//if(!_td) return ;
 
 	_xC = e.pageX ;
 	_yC = e.pageY ;
@@ -137,7 +137,7 @@ function onTouchMove(e)
 function smearTick()
 {
 	// This really only applies to the mouse ... can't hover on a touch screen ;-)
-	if(!_td) return ;
+	//if(!_td) return ;
 
 	// If we haven't moved, return
 	if(_xL == _xC && _yL == _yC) return ;
