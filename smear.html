@@ -56,6 +56,8 @@ var _CNB, _CXB ;
 
 var _IMS ;
 
+var _EVL ;
+
 function initSmear()
 {
 	_IPB = document.getElementById('p-blood') ;
@@ -73,6 +75,8 @@ function initSmear()
 
 	_CNS = document.getElementById('smearme') ;
 	_SMV = document.getElementById('smearv') ;
+	_EVL = document.getElementById('evlog') ;
+
 	_CXS = _CNS.getContext('2d') ;
 }
 
@@ -106,7 +110,7 @@ var _td ;
 var _vv = 0 ;
 function onTouchStart(e)
 {
-	_SMV.value = 'TOUCHSTART' ;
+	_EVL.value = 'TOUCHSTART' ;
 
 	_td = true ;
 	//_vv = 0 ;
@@ -126,6 +130,8 @@ function onTouchMove(e)
 
 	_xC = e.pageX ;
 	_yC = e.pageY ;
+
+	_EVL.value = 'x/y: '+_xC+'/'+_yC ;
 }
 
 function smearTick()
@@ -178,7 +184,7 @@ function onTouchEnd(e)
 	var xE = e.pageX ;
 	var yE = e.pageY ;
 
-	_SMV.value = 'TOUCHEND at '+xE+', '+yE ;
+	_EVL.value = 'TOUCHEND at '+xE+', '+yE ;
 
 	var d = dist(_xS, _yS, xE, yE) ;
 
@@ -333,6 +339,17 @@ function dist(x1,y1,x2,y2)
 			pointer-events: none ;
 		}
 
+		#evlog{
+			display: block ;
+			width: 120px ;
+			height: 40px ;
+			font-size: 20px ;
+			position: absolute ;
+			top: 10px ;
+			left: 140px ;
+			pointer-events: none ;
+		}
+
 		#smearme{
 			position: absolute ;
 		}
@@ -343,6 +360,8 @@ function dist(x1,y1,x2,y2)
 	</style>
 
 	<input id="smearv" />
+
+	<input id="evlog" />
 
 	<canvas id="smearme" width="1024" height="768" />
 
