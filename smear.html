@@ -87,7 +87,7 @@ function startSmear()
 	_CNS.addEventListener('touchend', onTouchEnd, false) ;
 
 	var img = document.getElementById('test-spatter') ;
-	_CXS.drawImage(img, 0, 0, 512, 384, 0, 0, 1024, 768) ;
+	_CXS.drawImage(img, 0, 0, 512, 384, 0, 0, 800, 600) ;
 }
 
 // Multiplies the opacities from our spatter particle
@@ -363,7 +363,7 @@ function dist(x1,y1,x2,y2)
 
 	<input id="evlog" />
 
-	<canvas id="smearme" width="1024" height="768" />
+	<canvas id="smearme" width="800" height="600" />
 
 	<canvas id="cnv-blood" width="50" height="50" />
 	
