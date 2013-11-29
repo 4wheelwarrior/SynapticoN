@@ -83,11 +83,21 @@ function initSmear()
 	_CXS = _CNS.getContext('2d') ;
 }
 
+var _mouse = false ;
 function startSmear()
 {
-	_CNS.addEventListener('touchstart', onTouchStart, false) ;
-	_CNS.addEventListener('touchmove', onTouchMove, false) ;
-	_CNS.addEventListener('touchend', onTouchEnd, false) ;
+	if(!_mouse)
+	{	
+		_CNS.addEventListener('touchstart', onTouchStart, false) ;
+		_CNS.addEventListener('touchmove', onTouchMove, false) ;
+		_CNS.addEventListener('touchend', onTouchEnd, false) ;
+	}
+	else
+	{
+		_CNS.addEventListener('mousedown', onTouchStart, false) ;
+		_CNS.addEventListener('mousemove', onTouchMove, false) ;
+		_CNS.addEventListener('mouseup', onTouchEnd, false) ;
+	}
 
 	var img = document.getElementById('test-spatter') ;
 	_CXS.drawImage(img, 0, 0, 512, 384, 0, 0, 800, 600) ;
@@ -144,14 +154,12 @@ function smearTick()
 	// Origin point of current line being sampled
 	var x, y ;
 
-	var lv ;
-
 	//console.log('a/aPerp is '+a+'/'+aPerp) ;
 	for(var rP = -10; rP <= 20; rP += 5)
 	{
 		x = Math.floor(_xL + rP * Math.cos(aPerp)) ;
 		y = Math.floor(_yL + rP * Math.sin(aPerp)) ;
-
+		
 		_vv += lineVolume(x, y, r, a) ;
 	}
 
@@ -240,28 +248,47 @@ function paintSmear(x1, y1, r, a)
 	// Raw pixel data
 	var PX ;
 
+	// Average alpha value sampled from smear canvas
+	var aAvg = 0 ;
+
+	var alph ;
+
 	for(var rC = 0; rC < r; rC += 20)
 	{
 		x = Math.floor( x1 + rC * Math.cos(a) ) ;
 		y = Math.floor( y1 + rC * Math.sin(a) ) ;
 
-		// Grab a 50x50 chunk of pixel data from smear canvas
+		// Grab a 100 x 100 chunk of pixel data from smear canvas
 		PX = _CXS.getImageData(x, y, 100, 100) ;
 
-		// Iterate over alpha values, dimming them ...
+		if(_vv <= 0) break ;
+
+		// Iterate over alpha values, dimming them proportionally
+		// To corresponding pixels in _PXS (pix data for smear primitive)
 		for(var i = 3; i < _PXS.data.length ; i += 4 )
 		{
 			//PX.data[i] = Math.floor(PX.data[i] * 0.8) ;
-			PX.data[i] -= Math.floor(_PXS.data[i] * 1.1) ;
+			aAvg += PX.data[i] ;
+			PX.data[i] -= Math.floor(_PXS.data[i] * 0.5) ;
 		}
 
+		aAvg = aAvg / 10000 ;
+
+		
+		//_CXS.globalAlpha = aAvg * 0.008 ; // convert from 
+		
+		alph = (aAvg / 255) * 0.6 ;
+		if(alph < 0.3) alph = 0.3 ;
+
+		console.log('setting ga to ' + alph) ;
+
+		_CXS.globalAlpha =  alph ;
 		_CXS.putImageData(PX, x, y, 100, 100) ;
+		_CXS.drawImage(_IMS, x, y, 100, 100) ;
 
-		if(_vv > 0)
-		{
-			_CXS.drawImage(_IMS, x, y, 100, 100) ;
-			_vv -= 2000 ;
-		}
+		_CXS.globalAlpha = 1.0 ;
+
+		_vv -= 2400 ;
 	}
 }
 
