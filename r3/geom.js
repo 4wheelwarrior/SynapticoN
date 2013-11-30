@@ -102,7 +102,6 @@ function startGeom()
 {
 	window.setInterval('drawFaded()', 10) ;
 	window.setInterval('doGCycle()', 10000) ;
-	window.setInterval('nextBG()', 60000) ;
 }
 
 function initGCnvFG()
@@ -125,7 +124,7 @@ function renderGCellSprite()
     var cG 	= 255 ;
     var cB 	= 255 ;
 
-    var o 	= 0.25 ;
+    var o 	= 0.13 ;
 
     // Creating separate vars for readability
     var cx  = 120 ;

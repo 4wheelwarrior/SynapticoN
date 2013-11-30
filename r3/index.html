@@ -66,6 +66,7 @@
 		position: absolute ;
 		width: 1024px ;
 		height: 768px ;
+		opacity: 0.95 ;
 		pointer-events: none ;
 	}
 
@@ -78,11 +79,39 @@
 		pointer-events: none ;
 		display: none ;
 	}
+
+	#revolver-cyl
+	{
+		position: absolute ;
+		width: 150px ;
+		height: 150px ;
+		background: url('revolver-cyl.png') ;
+		/* left: 447px ; */
+		left: 441px ;
+		top: 595px ;
+
+		-webkit-transition-timing-function: ease-out ;
+		-webkit-transition: -webkit-transform 1s ;
+	}
+
+	#seg
+	{
+		display: block ;
+		position: absolute ;
+	}
+
+	#seg-colon
+	{
+		position: absolute ;
+	}
 </style>
 
 <script src="poly.js"></script>
 <script src="geom.js"></script>
 <script src="spat.js"></script>
+<script src="spat.js"></script>
+<script src="revo.js"></script>
+<script src="7seg.js"></script>
 
 </head>
 <body>
@@ -93,6 +122,11 @@
 
 <canvas id="cnv-spatter" width="1024" height="768" style="z-index: 300"></canvas>
 
+<div id="seg" style="z-index:240">
+	<img id="seg-colon" src="7seg-colon.png" style="left: 696px; top: 695px; display: block" />
+</div>
+
+<div id="revolver-cyl" style="z-index: 230"></div>
 <div id="hardware" style="z-index: 210"></div>
 <div id="crt-blank" style="z-index: 200"></div>
 
@@ -192,8 +226,6 @@ var _IST ;
 // Hit Counter
 var _H = 0 ;
 
-// Score
-var _S = 0 ;
 
 function main()
 {
@@ -241,6 +273,8 @@ function main()
 	renderTargetSprite() ;
 	initGeom() ;
 	initSpatter() ;
+	initRevo() ;
+	initSeg() ;
 	powerUp() ;
 
 	//window.setTimeout('powerDn()',10000) ;
@@ -254,6 +288,8 @@ function powerUp()
 
 	startGeom() ;
 	startSpatter() ;
+	startSeg() ;
+	//startRevo() ;
 
 	_CNO.addEventListener('touchstart', oClick, false) ;
 }
@@ -496,10 +532,10 @@ function registerHit()
 	if(_H == 3)
 	{
 		_H = 0 ;
-		_S++ ; 
+		scorePlus() ;
 	}
 
-	document.getElementById('score').innerHTML = 'H: '+_H+' | S: '+_S ;
+	addBullet(1) ;
 }
 
 function registerMiss()
@@ -507,14 +543,7 @@ function registerMiss()
 	if(_H > 0) _H = 0 ;
 	_H-- ;
 
-	if(_H == -3)
-	{
-		_H = 0 ;
-		//alert('DEATH!') ;
-		runDeathSequence() ;
-	}
-
-	document.getElementById('score').innerHTML = 'H: '+_H+' | S: '+_S ;
+	addBullet() ;
 }
 
 function plotDebugParticle(x,y,i)

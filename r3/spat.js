@@ -71,6 +71,7 @@ function runDeathSequence()
 	*/
 	document.getElementById('crt-blank').style.display = 'block' ;
 	document.getElementById('spatter-mask').style.display = 'block' ;
+	document.getElementById('seg').style.display = 'none' ;
 	
 	_IDRIP 	= window.setInterval('updateDREG()',200) ;
 	fireRound() ; // will call itself 3x
