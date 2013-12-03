@@ -45,7 +45,7 @@ function main()
 	calcFol(256, 192, r * Math.pow(C_PHI,2), a) ;
 	
 	*/
-	_ctxG.fillStyle = '#000000' ;
+	_ctxG.fillStyle = '#01062d' ;
 	_ctxG.fillRect(0,0,512,384) ;
 	
 	_ctxG.globalCompositeOperation = 'xor' ;
@@ -88,7 +88,6 @@ function doSweep3()
 		x = cx + Math.floor((i / 100) * r * Math.cos(a)) ; 
 		y = cy + Math.floor((i / 100) * r * Math.sin(a)) ;
 
-		console.log('Pushing onto RREG: '+x+', '+y+', '+sc) ;
 		_RREG.push([x, y, sc]) ;
 	}
 	
@@ -159,8 +158,10 @@ function doSweep2()
 	doSweep2() ;
 }
 
+// c = colour index (0 = red, 1 = org ...  7 = vio)
 function spawnSweepParticle(r, a, s1, s2)
 {
+	var c = 'ind' ;
 	var cx = 512 - 25 ;
 	var cy = 384 - 25 ;
 
@@ -169,7 +170,7 @@ function spawnSweepParticle(r, a, s1, s2)
 
 	var img = document.createElement('img') ;
 
-	img.src = 'img/sweep-prim.png' ;
+	img.src = 'img/sweep-prim-'+c+'.png' ;
 
 	img.style.webkitTransition = 'all 5s' ;
 	img.style.width = s1 + 'px' ;
@@ -232,7 +233,7 @@ function drawGradient(r)
 	// light blue
 	grd.addColorStop(0, 'rgba(0,0,0,0)');
 	grd.addColorStop(0.10, 'rgba(0,0,0,0)');
-	grd.addColorStop(0.50, 'rgba(255,0,0,255)');
+	grd.addColorStop(0.50, 'rgba(0,0,230,255)');
 	grd.addColorStop(0.90, 'rgba(0,0,0,0)');
 	grd.addColorStop(1, 'rgba(0,0,0,0)');
 
@@ -332,7 +333,7 @@ function randomInt(min, max)
 </script>
 <style>
 body{
-	background: black ;
+	background: #010c44 ;
 	padding: 0 ;
 	margin: 0 ;
 }
@@ -351,17 +352,39 @@ body{
 	height: 768px ;
 	z-index: 50 ;
 }
+
+#hardware{
+	position: absolute ;
+	z-index: 1000 ;
+	width: 1024px ;
+	height: 768px ;
+	background: url('img/hardware.png') ;
+	background-size: 1024px 768px ;
+	pointer-events: none
+}
 </style>
 </head>
 <body id="thebody">
 
+<div id="hardware"></div>
 
 <canvas id="g-cnv-neg" width="512" height="384"></canvas>
 <canvas id="grd-sweep" width="256" height="192"></canvas>
 
-<canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
 
+<canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
 <img id="sweep-prim" src="img/sweep-prim.png" style="display:none" />
+
+
+<img id="sweep-prim-0" src="img/sweep-prim-red.png" style="display:none" />
+<img id="sweep-prim-1" src="img/sweep-prim-org.png" style="display:none" />
+<img id="sweep-prim-2" src="img/sweep-prim-yel.png" style="display:none" />
+<img id="sweep-prim-3" src="img/sweep-prim-grn.png" style="display:none" />
+<img id="sweep-prim-4" src="img/sweep-prim-blu.png" style="display:none" />
+<img id="sweep-prim-5" src="img/sweep-prim-ind.png" style="display:none" />
+<img id="sweep-prim-6" src="img/sweep-prim-vio.png" style="display:none" />
+
+
 <script>window.setTimeout('main()',200)</script>
 </body>
 </html>
