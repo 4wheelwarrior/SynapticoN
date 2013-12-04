@@ -1,6 +1,8 @@
 <html>
 <head>
 <script>
+var _cnvT, _ctxT ;
+
 var _cnvG ;
 var _ctxG ;
 
@@ -27,10 +29,15 @@ function main()
 	_cnvS = document.getElementById('grd-sweep') ;
 	_ctxS = _cnvS.getContext('2d') ;
 
+	_cnvT = document.getElementById('cnv-t') ;
+	_ctxT = _cnvT.getContext('2d') ;
+
 	_cnvGS = document.getElementById('gcell-sprite') ;
 	_ctxGS = _cnvGS.getContext('2d') ;
 
 	renderGCellSprite() ;
+
+	//drawGradientMask(210) ;
 
 	var r = 50 ;
 	var a = 0 ;
@@ -51,7 +58,8 @@ function main()
 	_ctxG.globalCompositeOperation = 'xor' ;
 	renderDQ() ;
 
-	window.setInterval('dgTick()',100) ;
+	window.setInterval('dgTick()',200) ;
+	window.setInterval('gmTick()',200) ;
 }
 
 function doClick(ev)
@@ -199,11 +207,41 @@ function spawnSweepParticle(r, a, s1, s2)
 
 function doSweep()
 {
+	document.getElementById('cnv-g').style.display = 'none' ;
+	_cnvT.style.display = 'block' ;
+
+	doSweep2() ;
+	window.setTimeout('doSweep2()', 300) ;
+
 	_R = 5 ;
+	window.setTimeout(function(){ 
+		_RGM = 10 ;
+		document.getElementById('cnv-t').style.opacity = 0.7 ;
+	}, 500) ;
+
+	window.setTimeout(function(){ 
+		document.getElementById('cnv-g').style.display = 'block' ;
+		_cnvT.style.display = 'none' ;
+		_cnvT.style.opacity = 0 ;
+	}, 5500) ;
+
+	window.setTimeout(function(){
+		window.location.href = 'gtrace.html' ;
+	},6500) ;
+	
 	return true ;
 }
 
-var _R = 5 ;
+var _RGM = 999 ;
+function gmTick()
+{
+	if(_RGM >= 210) return ;
+
+	drawGradientMask(_RGM) ;
+	_RGM += 6 ;
+}
+
+var _R = 999 ;
 function dgTick()
 {	
 	if(_R > 500) return 0 ;
@@ -218,6 +256,25 @@ function renderDQ()
 	{
 		drawGCell(_GDQ[i][0], _GDQ[i][1], _GDQ[i][2]) ;
 	}
+}
+
+function drawGradientMask(r)
+{
+	var cx = 256 / 2 ;
+	var cy = 192 / 2 ;
+
+	_ctxT.rect(0, 0, _cnvT.width, _cnvT.height);
+
+	// create radial gradient
+	var grd = _ctxT.createRadialGradient(cx, cy, 0, cx, cy, r) ;
+
+	// light blue
+	grd.addColorStop(0, 'rgba(8,114,238,255)');
+	grd.addColorStop(0.75, 'rgba(1,10,65,255)');
+	grd.addColorStop(1, 'rgba(0,0,0,0)');
+
+	_ctxT.fillStyle = grd;
+	_ctxT.fill();
 }
 
 // Draw gradient at radius r (base radius is 10)
@@ -338,6 +395,18 @@ body{
 	margin: 0 ;
 }
 
+#cnv-t{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	pointer-events: none ;
+
+    opacity: 0 ;
+
+	-webkit-transition-timing-function: ease-out ;
+ 	-webkit-transition: opacity 4s ;
+}
+
 #g-cnv-neg{
 	position: absolute ;
 	/* double native canvas size for fullscreen */
@@ -360,7 +429,18 @@ body{
 	height: 768px ;
 	background: url('img/hardware.png') ;
 	background-size: 1024px 768px ;
-	pointer-events: none
+	pointer-events: none ;
+	display: none ;
+}
+
+#cnv-g{
+	background: url('img/bg-blu.jpg') ;
+	background-size: 1024px 768px ;
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	display: block ;
+	pointer-events: none ;
 }
 </style>
 </head>
@@ -368,8 +448,10 @@ body{
 
 <div id="hardware"></div>
 
-<canvas id="g-cnv-neg" width="512" height="384"></canvas>
-<canvas id="grd-sweep" width="256" height="192"></canvas>
+<canvas id="cnv-t" width="256" height="192" style="z-index: 300"></canvas>
+<div id="cnv-g" src="img/bg-blu.png" style="z-index: 250"></div>
+<canvas id="g-cnv-neg" width="512" height="384" style="z-index: 200"></canvas>
+<canvas id="grd-sweep" width="256" height="192" style="z-index: 100"></canvas>
 
 
 <canvas id="gcell-sprite"		width="240"		height="240"	style="display: none"></canvas>
@@ -385,6 +467,6 @@ body{
 <img id="sweep-prim-6" src="img/sweep-prim-vio.png" style="display:none" />
 
 
-<script>window.setTimeout('main()',200)</script>
+<script>window.setTimeout('main()',500)</script>
 </body>
 </html>
