@@ -231,6 +231,9 @@ function doSweep()
 	// radial gradient loop
 	window.setTimeout(function(){ 
 		_R = 5 ;
+		doSweep3() ;
+		doSweep3() ;
+		doSweep3() ;
 	}, 800) ;
 	
 	window.setTimeout(function(){ 
@@ -271,9 +274,9 @@ function renderBG(ctx)
 	
 	// light blue
 	
-	grd.addColorStop(0.2, 'rgba(0,0,54,255)');
-	grd.addColorStop(0.5, 'rgba(0,0,220,255)');
-	grd.addColorStop(0.7, 'rgba(0,0,0,255)');
+	grd.addColorStop(0.1, 'rgba(0,0,0,255)');
+	grd.addColorStop(0.2, 'rgba(0,0,220,255)');
+	grd.addColorStop(0.6, 'rgba(0,0,0,255)');
 
 	ctx.fillStyle = grd;
 	ctx.fill();
