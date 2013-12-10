@@ -1,0 +1,98 @@
+body{
+	background: black ;
+	margin: 0 ;
+	padding: 0 ;
+}
+
+#cnv-o, #cnv-g, #cnv-b, #cnv-d, #cnv-m, #cnv-n{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+}
+
+#cnv-g{
+	-webkit-transform: translateZ(0) ;
+}
+
+#hidden{
+	display: none ;
+	position: absolute ;
+	z-index: 1000 ;
+	border: 2px solid yellow ;
+}
+
+#cnv-s{
+	border: 2px solid yellow ;
+}
+
+#score{
+	position: absolute ;
+	width: 150px ;
+	height: 20px ;
+	font-size: 20px ;
+	color: white ;
+	font-family: verdana, arial, helvetica, sans-serif ;
+	z-index: 200 ;
+}
+
+#hardware{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	background: url('hardware.png') ;
+	background-size: 1024px 768px ;
+	pointer-events: none
+}
+
+#crt-blank
+{
+	position: absolute ;
+	background: url('crt-blank.jpg') ;
+	width: 1024px ;
+	height: 768px ;
+	display: none ;
+}
+
+#cnv-spatter
+{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	opacity: 0.95 ;
+	pointer-events: none ;
+}
+
+#spatter-mask
+{
+	position: absolute ;
+	width: 1024px ;
+	height: 768px ;
+	background: url('spatter-mask.png') ;
+	pointer-events: none ;
+	display: none ;
+}
+
+#revolver-cyl
+{
+	position: absolute ;
+	width: 150px ;
+	height: 150px ;
+	background: url('revolver-cyl.png') ;
+	/* left: 447px ; */
+	left: 441px ;
+	top: 595px ;
+
+	-webkit-transition-timing-function: ease-out ;
+	-webkit-transition: -webkit-transform 1s ;
+}
+
+#seg
+{
+	display: block ;
+	position: absolute ;
+}
+
+#seg-colon
+{
+	position: absolute ;
+}

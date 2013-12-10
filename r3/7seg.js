@@ -156,7 +156,6 @@ function scorePlus()
 
 function timeTick()
 {
-	console.log('timeTick, value is ' + _C) ;
 	if(_C < 0) return ;
 
 	_C-- ;

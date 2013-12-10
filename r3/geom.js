@@ -86,36 +86,24 @@ function initGeom()
 	_CNG = document.getElementById('cnv-g') ;
 	_CXG = _CNG.getContext('2d') ;
 
-	_CNB = document.getElementById('cnv-b') ;
-	_CXB = _CNB.getContext('2d') ;
-
 	_CNC = document.getElementById('cnv-c') ;
 	_CXC = _CNC.getContext('2d') ;
 
-	initGCnvFG() ;
-	initGCnvBG() ;
+	initGCnv() ;
 
 	renderGCellSprite() ;
 }
 
 function startGeom()
 {
-	window.setInterval('drawFaded()', 10) ;
-	window.setInterval('doGCycle()', 10000) ;
+	window.setInterval('doGCycle()', 16000) ;
 }
 
-function initGCnvFG()
+function initGCnv()
 {
-	// Paint background onto canvas
+	// Paint current background onto G cnv
 	var img = document.getElementById('bg-'+_bgIdx);
 	_CXG.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
-}
-
-function initGCnvBG()
-{
-	// Paint background onto canvas
-	var img = document.getElementById('bg-'+_bgIdx);
-	_CXB.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
 }
 
 function renderGCellSprite()
@@ -164,10 +152,7 @@ function doGCycle()
 	//_ctxGB.drawImage(img, 0, 0, 256, 192, 0, 0, 512, 384) ;
 
 	// Re-initialize foreground canvas to current colour
-	initGCnvFG() ;
-	initGCnvBG() ;
-
-	_CNG.style.opacity = 1.0 ;
+	initGCnv() ;
 
 	// Calculate cell coordinates
 	for(var i = 0; i < 3; i++)
@@ -198,8 +183,9 @@ function drawFaded()
 	// Stop drawing, set fade out timer, reset for next cycle
 	if(_iDFLoc >= _GDQ.length)
 	{
-		// Linger briefly, then fade
-		window.setTimeout(function(){_CNG.style.opacity = 0}, GFDELAY) ;
+		console.log('Finished DQ ... start repaint timeout... ') ;
+		// Linger briefly, then repaint background
+		window.setTimeout(initGCnv, GFDELAY) ;
 		window.clearInterval(_IDG) ;
 
 		// Reset draw pointers
@@ -287,5 +273,5 @@ function nextBG()
     _bgIdx++ ;
 
     // Re-initialize background canvas to new colour
-    initGCnvBG() ;
+    initGCnv() ;
 }
