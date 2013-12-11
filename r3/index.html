@@ -435,8 +435,10 @@ function registerHit()
 	if(_H == 3)
 	{
 		_H = 0 ;
-		doGFla() ;
-		scorePlus() ;
+		addBullet(1) ;
+		window.setTimeout( function(){ fireAtGame(); scorePlus();}, 100 ) ;
+		window.setTimeout( doGFla, 500 ) ;
+		return ;
 	}
 
 	addBullet(1) ;
@@ -446,6 +448,11 @@ function registerMiss()
 {
 	if(_H > 0) _H = 0 ;
 	_H-- ;
+
+	if(_H == -3)
+	{
+		runDeathSequence() ;
+	}
 
 	addBullet() ;
 }

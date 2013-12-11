@@ -119,31 +119,93 @@ function addBullet(isGameFacing)
 	if(isGameFacing)
 		_BUL[_ICYL].style.webkitTransform = 'rotate('+randomInt(0,360)+'deg)' ;
 
-	// If we just loaded the last player-facing bullet, trigger death sequence
-	if(_ICYL == 2)
-	{
-		runDeathSequence() ;
-		_ICYL = 0 ;
-		return ;
-	}
-
-	// If we just loaded the last game-facing bullet, trigger fireworks sequence
-	if(_ICYL == 5)
-	{
-		unloadCyl() ;
-		_ICYL = 0 ;
-		scorePlus() ;
-		return ;
-	}
-
 	_ICYL++ ;
 }
 
 function unloadCyl()
 {
 	for(var i = 0; i < _BUL.length; i++)
+	{
 		_BUL[i].style.display = 'none' ;
+		if(i > 2) _BUL[i].src = 'bullet-gf.png' ;
+	}
+}
 
-	// Give 'er a spin
-	//_elCyl.style.webkitTransform = 'rotate(360deg)' ;
+function fireAtGame()
+{
+	// Fire 1st round, kick back
+	console.log('Fire 1') ;
+	// Cancel timing function here if snap back is preferred ...
+	_CYL.style.webkitTransform = 'scale( 1.2, 1.2 )' ;
+	_BUL[3].src = 'bullet-gf-fired.png' ;
+
+	// Snap home, rotate to next chamber
+	window.setTimeout(function(){
+		_CYL.style.webkitTransform = 'rotate( 120deg ) scale( 1, 1 )' ;
+	}, 500) ;
+
+	// Fire 2nd round, kick back
+	window.setTimeout(function(){
+		CYL.style.webkitTransform = 'rotate( 120deg ) scale( 1.2, 1.2 )' ;
+		_BUL[4].src = 'bullet-gf-fired.png' ;
+	}, 1000) ;
+
+	// Snap home, rotate to next chamber
+	window.setTimeout(function(){
+		_CYL.style.webkitTransform = 'rotate( 240deg ) scale( 1, 1 )' ;
+	}, 1500) ;
+
+	// Fire 3rd round, kick back
+	window.setTimeout(function(){
+		_BUL[5].src = 'bullet-gf-fired.png' ;
+		_CYL.style.webkitTransform = 'rotate( 240deg ) scale( 1.2, 1.2 )' ;
+	}, 2000) ;
+
+
+	// Snap home, spin back to zero, unload cylinders
+	window.setTimeout(function(){
+		unloadCyl() ;
+		_CYL.style.webkitTransform = 'rotate( 0deg ) scale( 1, 1 )' ;
+		_ICYL = 0 ;
+	}, 2500) ;
+}
+
+// Kick back, towards player (when firing at game)
+function cylBack()
+{
+	_CYL.style.backgroundSize = '170px 170px' ;
+
+	_CYL.style.width = '170px' ;
+	_CYL.style.height = '170px' ;
+
+	_CYL.style.left = '431px' ;
+	_CYL.style.top = '585px' ;
+}
+
+function cylHome()
+{
+	_CYL.style.backgroundSize = '150px 150px' ;
+
+	_CYL.style.width = '150px' ;
+	_CYL.style.height = '150px' ;
+
+	_CYL.style.left = '441px' ;
+	_CYL.style.top = '595px' ;
+}
+
+// Kick back, away from player (when firing at ... player)
+function cylFwd()
+{
+	_CYL.style.backgroundSize = '130px 130px' ;
+
+	_CYL.style.width = '130px' ;
+	_CYL.style.height = '130px' ;
+
+	_CYL.style.left = '451px' ;
+	_CYL.style.top = '605px' ;
+}
+
+function fireAtPlayer()
+{
+	return true ;
 }
