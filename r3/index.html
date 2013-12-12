@@ -24,7 +24,7 @@
 	<img id="seg-colon" src="7seg-colon.png" style="left: 696px; top: 695px; display: block" />
 </div>
 
-<div id="revolver-cyl" style="z-index: 230"></div>
+<div id="revolver-cyl-outer" style="z-index: 230"><div id="revolver-cyl"></div></div>
 <div id="hardware" style="z-index: 210"></div>
 <div id="crt-blank" style="z-index: 200"></div>
 
@@ -59,6 +59,9 @@
 	<canvas id="cnv-s" 	width="48" 		height="12"></canvas>
 	<canvas id="cnv-t" 	width="420" 	height="60"></canvas>
 	<canvas id="cnv-c" 	width="240" 	height="240"></canvas>
+
+	<img src="bullet-gf-fired.png" />
+	<img src="bullet-pf-fired.png" />
 </div>
 
 <script>
@@ -192,8 +195,7 @@ function powerUp()
 	startSeg() ;
 	//startRevo() ;
 
-	_CNO.addEventListener('mousedown', oClick, false) ;
-	//Adding some GIT fodder ... :p
+	_CNO.addEventListener('touchstart', oClick, false) ;
 }
 
 function powerDn()
@@ -452,7 +454,10 @@ function registerMiss()
 
 	if(_H == -3)
 	{
-		runDeathSequence() ;
+		addBullet() ;
+		window.setTimeout( function(){ fireAtPlayer() }, 1000 ) ;
+		window.setTimeout( function(){ runDeathSequence() }, 1250 ) ;
+		return ;
 	}
 
 	addBullet() ;

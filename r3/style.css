@@ -72,15 +72,20 @@ body{
 	display: none ;
 }
 
-#revolver-cyl
+#revolver-cyl-outer
 {
 	position: absolute ;
 	width: 150px ;
 	height: 150px ;
-	background: url('revolver-cyl.png') ;
-	/* left: 447px ; */
 	left: 441px ;
 	top: 595px ;
+}
+
+#revolver-cyl
+{
+	width: 150px ;
+	height: 150px ;
+	background: url('revolver-cyl.png') ;	
 
 	-webkit-transition-timing-function: ease-out ;
 	-webkit-transition: -webkit-transform 0.25s ;

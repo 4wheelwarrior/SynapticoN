@@ -127,7 +127,7 @@ function fireRound()
 	if(_IQ > 3) _IQ = 0 ;
 
 	// Increment recursion counter, call again
-	window.setTimeout('fireRound()',randomInt(400,1000)) ;
+	window.setTimeout('fireRound()',500) ;
 	_iDeath++ ;
 }
 
